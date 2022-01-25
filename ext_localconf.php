@@ -10,7 +10,7 @@ $driverRegistry = \TYPO3\CMS\Core\Utility\GeneralUtility::makeInstance(
 $driverRegistry->registerDriverClass(
     \Jbaron\FalWebdav\Driver\WebdavDriver::class,
     \Jbaron\FalWebdav\Driver\WebdavDriver::DRIVER_KEY,
-    'Database driver for FAL',
+    'WebDAV driver for FAL',
     'FILE:EXT:fal_webdav2/Configuration/FlexForm/DriverFlexForm.xml'
 );
 
