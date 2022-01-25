@@ -3,7 +3,28 @@
     <ROOT>
         <type>array</type>
         <el>
-            <!-- Nothing here for now. -->
+            <webdav_url>
+                <TCEforms>
+                    <label>WebDAV URL</label>
+                    <config>
+                        <type>input</type>
+                        <default>http://webdav.domain.com/path/</default>
+                        <eval>trim</eval>
+                        <size>30</size>
+                    </config>
+                </TCEforms>
+            </webdav_url>
+            <public_url>
+                <TCEforms>
+                    <label>Public URL</label>
+                    <config>
+                        <type>input</type>
+                        <default>http://webdav.other-domain.com/public_path/</default>
+                        <eval>trim</eval>
+                        <size>30</size>
+                    </config>
+                </TCEforms>
+            </public_url>
         </el>
     </ROOT>
 </T3DataStructure>
