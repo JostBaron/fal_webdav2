@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace JostBaron\FalWebdav\Driver;
+namespace Jbaron\FalWebdav\Driver;
 
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
