@@ -4,17 +4,20 @@ declare(strict_types=1);
 
 namespace Jbaron\FalWebdav\Driver;
 
+use Psr\Cache\CacheItemPoolInterface;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Client\RequestExceptionInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
-use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\UriFactoryInterface;
 use Psr\Http\Message\UriInterface;
 use Psr\Log\LoggerInterface;
+use TYPO3\CMS\Core\Log\LogManager;
+use TYPO3\CMS\Core\Resource\Exception\FileOperationErrorException;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 class WebdavClient
 {
@@ -28,7 +31,6 @@ class WebdavClient
     private string $publicUrlPrefix;
 
     public function __construct(
-        LoggerInterface $logger,
         RequestFactoryInterface $requestFactory,
         StreamFactoryInterface $streamFactory,
         UriFactoryInterface $uriFactory,
@@ -36,21 +38,22 @@ class WebdavClient
         string $webdavUrl,
         string $publicUrlPrefix
     ) {
-        $this->logger = $logger;
         $this->requestFactory = $requestFactory;
         $this->streamFactory = $streamFactory;
         $this->uriFactory = $uriFactory;
         $this->httpClient = $httpClient;
         $this->webdavUrl = $webdavUrl;
         $this->publicUrlPrefix = $publicUrlPrefix;
+
+        $this->logger = GeneralUtility::makeInstance(LogManager::class)->getLogger(__CLASS__);
     }
 
     public function createFolder(string $path): ?string
     {
         $pathParts = \explode('/', \trim($path, '/ '));
-        $currentPath = '';
+        $currentPath = '/';
         foreach ($pathParts as $pathPart) {
-            $currentPath .= '/' . $pathPart;
+            $currentPath .= $pathPart . '/';
             $response = $this->executeRequest(
                 $this->requestFactory->createRequest(
                     'MKCOL',
@@ -58,7 +61,7 @@ class WebdavClient
                 )
             );
 
-            if (!$this->isSuccessful($response)) {
+            if (201 !== $response->getStatusCode() && 405 !== $response->getStatusCode()) {
                 return null;
             }
         }
@@ -182,13 +185,30 @@ BODY;
 BODY;
         $requestBody = \trim($requestBody);
 
-        $response = $this->executeRequest(
-            $this->requestFactory
-                ->createRequest('PROPFIND', $this->getWebdavPath($path))
-                ->withHeader('Content-Type', 'application/xml; charset="utf-8"')
-                ->withHeader('Depth', '0')
-                ->withBody($this->streamFactory->createStream($requestBody))
-        );
+        $request = $this->requestFactory
+            ->createRequest('PROPFIND', $this->getWebdavPath($path))
+            ->withHeader('Content-Type', 'application/xml; charset="utf-8"')
+            ->withHeader('Depth', '0')
+            ->withBody($this->streamFactory->createStream($requestBody));
+
+        $response = $this->executeRequest($request);
+
+        $remainingAttempts = 3;
+        while (300 <= $response->getStatusCode() && $response->getStatusCode() < 400) {
+            $redirectUris = $response->getHeader('Location');
+            if (0 === \count($redirectUris)) {
+                throw new FileOperationErrorException(
+                    'Got no "Location" header in 3xx HTTP response.',
+                    1643218355
+                );
+            }
+            $request = $request->withUri($this->uriFactory->createUri($redirectUris[0]));
+            $response = $this->executeRequest($request);
+            $remainingAttempts--;
+            if (0 === $remainingAttempts) {
+                break;
+            }
+        }
 
         $results = $this->splitMultiStatusResponse($response);
         if (1 !== \count($results) || 200 !== $results[0]->getStatusCode()) {
@@ -246,7 +266,7 @@ BODY;
         );
 
         $results = $this->splitMultiStatusResponse($response);
-        if (1 !== \count($results) || 200 !== $results[0]->getStatusCode()) {
+        if (200 !== $results[0]->getStatusCode()) {
             return [];
         }
 
@@ -258,7 +278,7 @@ BODY;
                 $xPath->registerNamespace('D', 'DAV:');
             }
 
-            $contentTypeNodes = $xPath->query('D:getcontenttype/text()');
+            $contentTypeNodes = $xPath->query('.//D:getcontenttype/text()', $result->getNode());
             $pathType = 'file';
             if (0 !== $contentTypeNodes->length) {
                 if ('httpd/unix-directory' === $contentTypeNodes->item(0)->textContent) {
@@ -302,12 +322,16 @@ BODY;
                 'Got WebDAV response',
                 [
                     'request' => [
+                        'method' => $request->getMethod(),
+                        'uri' => (string)$request->getUri(),
                         'headers' => $request->getHeaders(),
                         'body' => (string)$request->getBody(),
                     ],
                     'response' => [
-                        'headers' => $request->getHeaders(),
-                        'body' => (string)$request->getBody(),
+                        'status' => $response->getStatusCode(),
+                        'reason' => $response->getReasonPhrase(),
+                        'headers' => $response->getHeaders(),
+                        'body' => (string)$response->getBody(),
                     ],
                 ]
             );
@@ -317,13 +341,17 @@ BODY;
                     'WebDAV request failed:',
                     [
                         'request' => [
+                            'method' => $request->getMethod(),
+                            'uri' => (string)$request->getUri(),
                             'headers' => $request->getHeaders(),
                             'body' => (string)$request->getBody(),
                         ],
                         'response' => [
-                            'headers' => $request->getHeaders(),
-                            'body' => (string)$request->getBody(),
-                        ],
+                            'status' => $response->getStatusCode(),
+                            'reason' => $response->getReasonPhrase(),
+                            'headers' => $response->getHeaders(),
+                            'body' => (string)$response->getBody(),
+                        ]
                     ]
                 );
             }
@@ -336,6 +364,8 @@ BODY;
                 [
                     'exception' => $requestException,
                     'request' => [
+                        'method' => $request->getMethod(),
+                        'uri' => (string)$request->getUri(),
                         'headers' => $request->getHeaders(),
                         'body' => (string)$request->getBody(),
                     ],
@@ -350,6 +380,8 @@ BODY;
                 [
                     'exception' => $clientException,
                     'request' => [
+                        'method' => $request->getMethod(),
+                        'uri' => (string)$request->getUri(),
                         'headers' => $request->getHeaders(),
                         'body' => (string)$request->getBody(),
                     ],
@@ -370,6 +402,7 @@ BODY;
                 'Should split multi-status response that does not have status code 207.',
                 [
                     'response' => [
+                        'status' => $response->getStatusCode(),
                         'headers' => $response->getHeaders(),
                         'body' => (string)$response->getBody(),
                     ],
@@ -402,8 +435,8 @@ BODY;
         $result = [];
         foreach ($xmlResponses as $xmlResponse) {
             $uriNodes = $xPath->query('./D:href/text()', $xmlResponse);
-            $statusNodes = $xPath->query('./D:status/text()', $xmlResponse);
-            $propNodes = $xPath->query('./D:prop');
+            $statusNodes = $xPath->query('./D:propstat/D:status/text()', $xmlResponse);
+            $propNodes = $xPath->query('./D:propstat/D:prop', $xmlResponse);
 
             if (0 === $uriNodes->length) {
                 $this->logger->error(

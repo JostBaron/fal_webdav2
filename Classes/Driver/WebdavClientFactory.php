@@ -34,16 +34,15 @@ class WebdavClientFactory
         $this->logger = GeneralUtility::makeInstance(LogManager::class)->getLogger(__CLASS__);
     }
 
-    public function createWebdavClient(string $webdavUrl, string $publicUrl): WebdavClient
+    public function createWebdavClient(?string $webdavUrl, ?string $publicUrl): WebdavClient
     {
         return new WebdavClient(
-            $this->logger,
             $this->requestFactory,
             $this->streamFactory,
             $this->uriFactory,
             $this->httpClient,
-            $webdavUrl,
-            $publicUrl
+            $webdavUrl ?? 'https://example.com/dav/',
+            $publicUrl ?? 'https://example.org/files/'
         );
     }
 }

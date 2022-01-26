@@ -45,6 +45,8 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
         $this->capabilities = ResourceStorageInterface::CAPABILITY_BROWSABLE
             | ResourceStorageInterface::CAPABILITY_PUBLIC
             | ResourceStorageInterface::CAPABILITY_WRITABLE;
+
+        $this->webdavClientFactory = GeneralUtility::makeInstance(WebdavClientFactory::class);
     }
 
     public function __destruct()
@@ -56,13 +58,7 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
 
     public function processConfiguration(): void
     {
-        /** @var ContainerInterface $container */
-        $container = GeneralUtility::makeInstance(Container::class);
-
-        /** @var WebdavClientFactory $webdavClientFactory */
-        $webdavClientFactory = $container->get(WebdavClientFactory::class);
-
-        $this->webdavClient = $webdavClientFactory->createWebdavClient(
+        $this->webdavClient = $this->webdavClientFactory->createWebdavClient(
             $this->configuration[self::CONFIG_WEBDAV_URL],
             $this->configuration[self::CONFIG_PUBLIC_URL]
         );
@@ -86,12 +82,12 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
 
     public function getRootLevelFolder(): string
     {
-        return static::ROOT_FOLDER_ID;
+        return $this->canonicalizeAndCheckFolderIdentifier(static::ROOT_FOLDER_ID);
     }
 
     public function getDefaultFolder(): string
     {
-        return static::DEFAULT_FOLDER_ID;
+        return $this->canonicalizeAndCheckFolderIdentifier(static::DEFAULT_FOLDER_ID);
     }
 
     public function getPublicUrl($identifier): string
@@ -101,9 +97,9 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
 
     public function createFolder($newFolderName, $parentFolderIdentifier = '', $recursive = false): string
     {
-        $newFolderPath = '/' . \trim(
-            \rtrim($parentFolderIdentifier, '/') . '/' . \ltrim($newFolderName, '/'),
-            '/'
+        $newFolderPath = $this->getFolderIdentifierFromParentFolderAndFolderName(
+            $parentFolderIdentifier,
+            $newFolderName
         );
 
         return $this->webdavClient->createFolder($newFolderPath);
@@ -136,8 +132,8 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
 
     public function deleteFolder($folderIdentifier, $deleteRecursively = false): bool
     {
+        $folderIdentifier = $this->canonicalizeAndCheckFolderIdentifier($folderIdentifier);
         if ($deleteRecursively || $this->isFolderEmpty($folderIdentifier)) {
-            $folderIdentifier = $this->canonicalizeAndCheckFolderIdentifier($folderIdentifier);
             return $this->webdavClient->delete($folderIdentifier);
         }
         return false;
@@ -145,11 +141,13 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
 
     public function fileExists($fileIdentifier): bool
     {
+        $fileIdentifier = $this->canonicalizeAndCheckFileIdentifier($fileIdentifier);
         return $this->webdavClient->pathExists($fileIdentifier);
     }
 
     public function folderExists($folderIdentifier): bool
     {
+        $folderIdentifier = $this->canonicalizeAndCheckFolderIdentifier($folderIdentifier);
         return $this->webdavClient->pathExists($folderIdentifier);
     }
 
@@ -159,13 +157,13 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
         return $this->webdavClient->isFolderEmpty($folderIdentifier);
     }
 
-    public function addFile($localFilePath, $targetFolderIdentifier, $newFileName = '', $removeOriginal = true): bool
+    public function addFile($localFilePath, $targetFolderIdentifier, $newFileName = '', $removeOriginal = true): string
     {
         $fileName = '' === $newFileName ? \basename($localFilePath) : $newFileName;
         $newFileIdentifier = $this->getFileIdentifierFromParentFolderAndFileName($targetFolderIdentifier, $fileName);
 
         if (!$removeOriginal && $this->fileExists($newFileIdentifier)) {
-            return false;
+            return $newFileIdentifier;
         }
 
         $fileHandle = \fopen($localFilePath, 'r+');
@@ -187,7 +185,7 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
                 ]
             );
         }
-        return $result;
+        return $newFileIdentifier;
     }
 
     public function createFile($fileName, $parentFolderIdentifier): bool
@@ -303,7 +301,10 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
     public function copyFolderWithinStorage($sourceFolderIdentifier, $targetFolderIdentifier, $newFolderName): bool
     {
         $sourceFolderIdentifier = $this->canonicalizeAndCheckFolderIdentifier($sourceFolderIdentifier);
-        $targetFolder = $this->getFolderIdentifierFromParentFolderAndFolderName($targetFolderIdentifier, $newFolderName);
+        $targetFolder = $this->getFolderIdentifierFromParentFolderAndFolderName(
+            $targetFolderIdentifier,
+            $newFolderName
+        );
 
         return $this->webdavClient->copy($sourceFolderIdentifier, $targetFolder);
     }
@@ -324,8 +325,8 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
             $this->logger->error('Could not open memory stream for uploading it to webdav.');
             return 0;
         }
-        $written = \fwrite($fileHandle, $fileIdentifier);
-        if (false === $written) {
+        $written = \fwrite($fileHandle, $contents);
+        if (false === $written || $written !== \strlen($contents)) {
             $this->logger->error('Could not write string to memory stream.');
             return 0;
         }
@@ -416,11 +417,15 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
 
     public function getFileInfoByIdentifier($fileIdentifier, array $propertiesToExtract = [])
     {
+        $fileIdentifier = $this->canonicalizeAndCheckFileIdentifier($fileIdentifier);
+
         return $this->extractFileInformation($fileIdentifier, $propertiesToExtract);
     }
 
     public function getFolderInfoByIdentifier($folderIdentifier)
     {
+        $folderIdentifier = $this->canonicalizeAndCheckFolderIdentifier($folderIdentifier);
+
         $folderInfo = [
             'identifier' => $folderIdentifier,
             'name' => \basename($folderIdentifier),
@@ -450,7 +455,7 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
 
         $filePaths = [];
         foreach ($this->webdavClient->getDescendantPaths($folderIdentifier, $recursive) as $path => $pathType) {
-            if ('file' !== $pathType) {
+            if ('file' !== $pathType || $path === $folderIdentifier) {
                 continue;
             }
             $entryName = \trim(\basename($path), '/');
@@ -472,9 +477,9 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
         return $filePaths;
     }
 
-    public function getFolderInFolder($folderName, $folderIdentifier)
+    public function getFolderInFolder($folderName, $folderIdentifier): string
     {
-        $this->getFolderIdentifierFromParentFolderAndFolderName($folderName, $folderIdentifier);
+        return $this->getFolderIdentifierFromParentFolderAndFolderName($folderIdentifier, $folderName);
     }
 
     public function getFoldersInFolder(
@@ -490,7 +495,7 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
 
         $folderPaths = [];
         foreach ($this->webdavClient->getDescendantPaths($folderIdentifier, $recursive) as $path => $pathType) {
-            if ('directory' !== $pathType) {
+            if ('directory' !== $pathType || $path === $folderIdentifier) {
                 continue;
             }
             $entryName = \trim(\basename($path), '/');
