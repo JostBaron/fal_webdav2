@@ -292,11 +292,9 @@ BODY;
         return $pathsToTypesMap;
     }
 
-    public function getPublicUrl(string $path): UriInterface
+    public function getPublicUrl(string $path): string
     {
-        return $this->uriFactory->createUri(
-            \rtrim($this->publicUrlPrefix, '/') . '/' . \ltrim($path, '/')
-        );
+        return \rtrim($this->publicUrlPrefix, '/') . '/' . \ltrim($path, '/');
     }
 
     private function isSuccessful(ResponseInterface $response): bool
