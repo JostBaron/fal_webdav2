@@ -66,7 +66,7 @@ class WebdavClient
             }
         }
 
-        return '/' . \trim($path, '/') . '/';
+        return $currentPath;
     }
 
     public function pathExists(string $path): bool
