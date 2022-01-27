@@ -72,7 +72,7 @@ class WebdavClient
     public function pathExists(string $path): bool
     {
         $response = $this->executeRequest(
-            $this->requestFactory->createRequest('GET', $this->getWebdavPath($path))
+            $this->requestFactory->createRequest('HEAD', $this->getWebdavPath($path))
         );
 
         return 200 === $response->getStatusCode();
