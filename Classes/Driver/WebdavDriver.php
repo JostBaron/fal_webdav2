@@ -162,10 +162,6 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
         $fileName = '' === $newFileName ? \basename($localFilePath) : $newFileName;
         $newFileIdentifier = $this->getFileIdentifierFromParentFolderAndFileName($targetFolderIdentifier, $fileName);
 
-        if (!$removeOriginal && $this->fileExists($newFileIdentifier)) {
-            return $newFileIdentifier;
-        }
-
         $fileHandle = \fopen($localFilePath, 'r+');
         if (false === $fileHandle) {
             $this->logger->error(
@@ -185,6 +181,20 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
                 ]
             );
         }
+
+        if ($removeOriginal) {
+            if (!\is_writable($localFilePath)) {
+                throw new FileOperationErrorException(
+                    \sprintf(
+                        'Cannot write file "%s" to remove it from the file system after adding it to the storage.',
+                        $localFilePath
+                    ),
+                    1578465610
+                );
+            }
+            \unlink($localFilePath);
+        }
+
         return $newFileIdentifier;
     }
 
