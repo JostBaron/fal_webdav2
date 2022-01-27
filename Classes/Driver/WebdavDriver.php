@@ -142,12 +142,19 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
     public function fileExists($fileIdentifier): bool
     {
         $fileIdentifier = $this->canonicalizeAndCheckFileIdentifier($fileIdentifier);
+        if (self::ROOT_FOLDER_ID === $fileIdentifier) {
+            return false;
+        }
+
         return $this->webdavClient->pathExists($fileIdentifier);
     }
 
     public function folderExists($folderIdentifier): bool
     {
         $folderIdentifier = $this->canonicalizeAndCheckFolderIdentifier($folderIdentifier);
+        if (self::ROOT_FOLDER_ID === $folderIdentifier) {
+            return true;
+        }
         return $this->webdavClient->pathExists($folderIdentifier);
     }
 
