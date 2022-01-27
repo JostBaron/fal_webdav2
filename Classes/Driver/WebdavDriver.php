@@ -172,6 +172,13 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
             );
         }
         $result = $this->webdavClient->uploadFile($newFileIdentifier, $fileHandle);
+        if (!$result) {
+            throw new FileOperationErrorException(
+                'Uploading local file failed.',
+                1643260717
+            );
+        }
+
         $closed = \fclose($fileHandle);
         if (!$closed) {
             $this->logger->notice(
