@@ -61,6 +61,9 @@ class WebdavClient
                 )
             );
 
+            if (null === $response) {
+                return null;
+            }
             if (201 !== $response->getStatusCode() && 405 !== $response->getStatusCode()) {
                 return null;
             }
@@ -75,7 +78,7 @@ class WebdavClient
             $this->requestFactory->createRequest('HEAD', $this->getWebdavPath($path))
         );
 
-        return 200 === $response->getStatusCode();
+        return null !== $response && 200 === $response->getStatusCode();
     }
 
     public function delete(string $path): bool
@@ -84,7 +87,7 @@ class WebdavClient
             $this->requestFactory->createRequest('DELETE', $this->getWebdavPath($path))
         );
 
-        return 204 === $response->getStatusCode();
+        return null !== $response && 204 === $response->getStatusCode();
     }
 
     public function isFolderEmpty(string $path): bool
@@ -104,6 +107,10 @@ BODY;
                 ->withHeader('Depth', '1')
                 ->withBody($this->streamFactory->createStream($emptyRequestBody))
         );
+
+        if (null === $response) {
+            return true;
+        }
 
         $results = $this->splitMultiStatusResponse($response);
         return 1 === \count($results);
@@ -125,6 +132,9 @@ BODY;
                 ->withHeader('Destination', $this->getWebdavPath($newPath))
                 ->withHeader('Depth', 'infinity')
         );
+        if (null === $response) {
+            return false;
+        }
         if (201 !== $response->getStatusCode() && 204 !== $response->getStatusCode()) {
             $this->logger->error(
                 'Copying failed',
@@ -145,6 +155,9 @@ BODY;
                 ->withHeader('Destination', $this->getWebdavPath($newPath))
                 ->withHeader('Depth', 'infinity')
         );
+        if (null === $response) {
+            return false;
+        }
         if (201 !== $response->getStatusCode() && 204 !== $response->getStatusCode()) {
             $this->logger->error(
                 'Copying failed',
@@ -163,7 +176,7 @@ BODY;
         $response = $this->executeRequest(
             $this->requestFactory->createRequest('GET', $this->getWebdavPath($path))
         );
-        if (200 !== $response->getStatusCode()) {
+        if (null === $response || 200 !== $response->getStatusCode()) {
             throw new \RuntimeException('Could not get file contents.', 1643139962);
         }
 
@@ -194,7 +207,7 @@ BODY;
         $response = $this->executeRequest($request);
 
         $remainingAttempts = 3;
-        while (300 <= $response->getStatusCode() && $response->getStatusCode() < 400) {
+        while (null !== $response && 300 <= $response->getStatusCode() && $response->getStatusCode() < 400) {
             $redirectUris = $response->getHeader('Location');
             if (0 === \count($redirectUris)) {
                 throw new FileOperationErrorException(
@@ -208,6 +221,10 @@ BODY;
             if (0 === $remainingAttempts) {
                 break;
             }
+        }
+
+        if (null === $response) {
+            return [];
         }
 
         $results = $this->splitMultiStatusResponse($response);
@@ -265,6 +282,10 @@ BODY;
                 ->withBody($this->streamFactory->createStream($requestBody))
         );
 
+        if (null === $response) {
+            return [];
+        }
+
         $results = $this->splitMultiStatusResponse($response);
         if (200 !== $results[0]->getStatusCode()) {
             return [];
@@ -297,19 +318,19 @@ BODY;
         return \rtrim($this->publicUrlPrefix, '/') . '/' . \ltrim($path, '/');
     }
 
-    private function isSuccessful(ResponseInterface $response): bool
+    private function isSuccessful(?ResponseInterface $response): bool
     {
-        return $response->getStatusCode() >= 200 && $response->getStatusCode() < 300;
+        return null !== $response && $response->getStatusCode() >= 200 && $response->getStatusCode() < 300;
     }
 
-    private function isError(ResponseInterface $response): bool
+    private function isError(?ResponseInterface $response): bool
     {
-        return $response->getStatusCode() >= 500;
+        return null === $response || $response->getStatusCode() >= 500;
     }
 
-    private function isNotFound(ResponseInterface $response): bool
+    private function isNotFound(?ResponseInterface $response): bool
     {
-        return 404 === $response->getStatusCode();
+        return null !== $response && 404 === $response->getStatusCode();
     }
 
     private function executeRequest(RequestInterface $request): ?ResponseInterface
