@@ -21,8 +21,8 @@
     }
   },
   "require": {
-    "typo3/cms-core": "~10.4.0",
-    "php": "^7.4 || ^8.0",
+    "typo3/cms-core": "^10.4 || ^11.5",
+    "php": "^7.4 || ^8.0 || ^8.1",
     "psr/http-client": "^1.0",
     "psr/http-factory": "^1.0",
     "psr/log": "^1.0"
