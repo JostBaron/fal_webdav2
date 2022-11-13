@@ -3,7 +3,7 @@ if (!defined('TYPO3_MODE')) {
     die ('Access denied.');
 }
 
-$GLOBALS['TYPO3_CONF_VARS']['SYS']['fal']['registeredDrivers'][] = [
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['fal']['registeredDrivers'][\Jbaron\FalWebdav\Driver\WebdavDriver::DRIVER_KEY] = [
     'class' => \Jbaron\FalWebdav\Driver\WebdavDriver::class,
     'shortName' => \Jbaron\FalWebdav\Driver\WebdavDriver::DRIVER_KEY,
     'label' => 'WebDAV driver for FAL',
