@@ -25,11 +25,17 @@
     "php": "^7.4 || ^8.0 || ^8.1",
     "psr/http-client": "^1.0",
     "psr/http-factory": "^1.0",
-    "psr/log": "^1.0"
+    "psr/log": "^1.0 || ^2.0 || ^3.0"
   },
   "extra": {
     "typo3/cms": {
       "extension-key": "fal_webdav2"
+    }
+  },
+  "config": {
+    "allow-plugins": {
+      "typo3/cms-composer-installers": true,
+      "typo3/class-alias-loader": true
     }
   }
 }
