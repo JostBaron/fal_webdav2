@@ -92,7 +92,7 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
 
     public function getPublicUrl($identifier): string
     {
-        return (string)$this->webdavClient->getPublicUrl($this->canonicalizeAndCheckFileIdentifier($identifier));
+        return $this->webdavClient->getPublicUrl($this->canonicalizeAndCheckFileIdentifier($identifier));
     }
 
     public function createFolder($newFolderName, $parentFolderIdentifier = '', $recursive = false): string
@@ -102,7 +102,14 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
             $newFolderName
         );
 
-        return $this->webdavClient->createFolder($newFolderPath);
+        $newFolderPath = $this->webdavClient->createFolder($newFolderPath);
+        if (null === $newFolderPath) {
+            throw new FileOperationErrorException(
+                'Could not create folder.',
+                1669558067
+            );
+        }
+        return $newFolderPath;
     }
 
     public function renameFolder($folderIdentifier, $newName): array
