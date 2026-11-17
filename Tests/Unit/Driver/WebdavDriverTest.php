@@ -441,6 +441,40 @@ class WebdavDriverTest extends TestCase
         self::assertSame(2, $this->subject->countFoldersInFolder('/folder/'));
     }
 
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public function listingMethods(): array
+    {
+        return [
+            'files' => ['getFilesInFolder'],
+            'folders' => ['getFoldersInFolder'],
+            'count files' => ['countFilesInFolder'],
+            'count folders' => ['countFoldersInFolder'],
+        ];
+    }
+
+    /**
+     * @dataProvider listingMethods
+     */
+    public function testListingThrowsIfFolderCannotBeListed(string $method): void
+    {
+        $this->webdavClient->method('getDescendantPaths')->willReturn(null);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionCode(1795427385);
+        $this->expectExceptionMessage('/missing/');
+        $this->subject->{$method}('/missing/');
+    }
+
+    public function testRenameFolderReturnsEmptyMapIfListingAfterMoveFails(): void
+    {
+        $this->webdavClient->method('move')->willReturn(true);
+        $this->webdavClient->method('getDescendantPaths')->willReturn(null);
+
+        self::assertSame([], $this->subject->renameFolder('/parent/old/', 'new'));
+    }
+
     public function testIsFolderEmptyDelegatesToClient(): void
     {
         $this->webdavClient->expects(self::once())->method('isFolderEmpty')->with('/folder/')->willReturn(true);

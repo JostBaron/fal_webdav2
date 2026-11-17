@@ -508,11 +508,29 @@ class WebdavClientTest extends TestCase
         );
     }
 
-    public function testGetDescendantPathsReturnsEmptyArrayIfServerIsUnreachable(): void
+    public function testGetDescendantPathsReturnsNullIfServerIsUnreachable(): void
     {
         $this->httpClient->enqueue($this->createClientException());
 
-        self::assertSame([], $this->subject->getDescendantPaths('/folder/', true));
+        self::assertNull($this->subject->getDescendantPaths('/folder/', true));
+    }
+
+    public function testGetDescendantPathsReturnsNullForMissingFolder(): void
+    {
+        $this->httpClient->enqueue(new Response(404));
+
+        self::assertNull($this->subject->getDescendantPaths('/missing/', false));
+    }
+
+    public function testGetDescendantPathsReturnsNullIfFolderItselfIsNotOk(): void
+    {
+        $this->httpClient->enqueue(
+            $this->createMultiStatusResponse([
+                ['href' => '/dav/folder/', 'props' => '', 'status' => 'HTTP/1.1 403 Forbidden'],
+            ])
+        );
+
+        self::assertNull($this->subject->getDescendantPaths('/folder/', false));
     }
 
     // ---------------------------------------------------------------------------------------------

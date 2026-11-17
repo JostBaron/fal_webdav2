@@ -223,7 +223,8 @@ BODY;
             }
         }
 
-        if (null === $response) {
+        // E.g. 404 if the resource does not exist.
+        if (null === $response || 207 !== $response->getStatusCode()) {
             return [];
         }
 
@@ -262,7 +263,13 @@ BODY;
         return $properties;
     }
 
-    public function getDescendantPaths(string $path, bool $recursive): array
+    /**
+     * Lists the given collection and its descendants (only direct children if not recursive).
+     *
+     * @return array<string, string>|null Map of paths (including $path itself) to "file" or "directory",
+     *                                    or null if the path cannot be listed, e.g. because it does not exist.
+     */
+    public function getDescendantPaths(string $path, bool $recursive): ?array
     {
         $requestBody = <<<'BODY'
 <?xml version="1.0" encoding="utf-8" ?>
@@ -282,13 +289,13 @@ BODY;
                 ->withBody($this->streamFactory->createStream($requestBody))
         );
 
-        if (null === $response) {
-            return [];
+        if (null === $response || 207 !== $response->getStatusCode()) {
+            return null;
         }
 
         $results = $this->splitMultiStatusResponse($response);
-        if (200 !== $results[0]->getStatusCode()) {
-            return [];
+        if ([] === $results || 200 !== $results[0]->getStatusCode()) {
+            return null;
         }
 
         $xPath = null;

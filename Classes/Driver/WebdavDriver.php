@@ -131,7 +131,7 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
         }
 
         $identifierMap = [];
-        foreach ($this->webdavClient->getDescendantPaths($newFolderIdentifier, true) as $path => $pathType) {
+        foreach ($this->webdavClient->getDescendantPaths($newFolderIdentifier, true) ?? [] as $path => $pathType) {
             $oldIdentifier = $folderIdentifier . \substr($path, \strlen($newFolderIdentifier));
             $identifierMap[$oldIdentifier] = $path;
         }
@@ -336,7 +336,7 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
         }
 
         $identifierMap = [];
-        foreach ($this->webdavClient->getDescendantPaths($targetFolder, true) as $path => $pathType) {
+        foreach ($this->webdavClient->getDescendantPaths($targetFolder, true) ?? [] as $path => $pathType) {
             $oldIdentifier = $sourceFolderIdentifier . \substr($path, \strlen($targetFolder));
             $identifierMap[$oldIdentifier] = $path;
         }
@@ -499,7 +499,7 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
         $folderIdentifier = $this->canonicalizeAndCheckFolderIdentifier($folderIdentifier);
 
         $filePaths = [];
-        foreach ($this->webdavClient->getDescendantPaths($folderIdentifier, $recursive) as $path => $pathType) {
+        foreach ($this->getDescendantPathsOrFail($folderIdentifier, $recursive) as $path => $pathType) {
             if ('file' !== $pathType || $path === $folderIdentifier) {
                 continue;
             }
@@ -539,7 +539,7 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
         $folderIdentifier = $this->canonicalizeAndCheckFolderIdentifier($folderIdentifier);
 
         $folderPaths = [];
-        foreach ($this->webdavClient->getDescendantPaths($folderIdentifier, $recursive) as $path => $pathType) {
+        foreach ($this->getDescendantPathsOrFail($folderIdentifier, $recursive) as $path => $pathType) {
             if ('directory' !== $pathType || $path === $folderIdentifier) {
                 continue;
             }
@@ -580,6 +580,23 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
         return \count(
             $this->getFoldersInFolder($folderIdentifier, 0, 0, $recursive, $folderNameFilterCallbacks)
         );
+    }
+
+    /**
+     * @return array<string, string>
+     *
+     * @throws \InvalidArgumentException if the folder cannot be listed, like TYPO3's LocalDriver does.
+     */
+    private function getDescendantPathsOrFail(string $folderIdentifier, bool $recursive): array
+    {
+        $paths = $this->webdavClient->getDescendantPaths($folderIdentifier, $recursive);
+        if (null === $paths) {
+            throw new \InvalidArgumentException(
+                \sprintf('Cannot list items in directory %s - does not exist or is no directory', $folderIdentifier),
+                1795427385
+            );
+        }
+        return $paths;
     }
 
     private function getFileIdentifierFromParentFolderAndFileName(
