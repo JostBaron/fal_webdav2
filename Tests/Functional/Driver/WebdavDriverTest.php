@@ -366,10 +366,30 @@ class WebdavDriverTest extends TestCase
     // Missing resources and failing operations
     // ---------------------------------------------------------------------------------------------
 
-    public function testListingMissingFolderReturnsNothing(): void
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public function listingMethods(): array
     {
-        self::assertSame([], $this->subject->getFilesInFolder($this->testFolder . 'missing/'));
-        self::assertSame([], $this->subject->getFoldersInFolder($this->testFolder . 'missing/'));
+        return [
+            'files' => ['getFilesInFolder'],
+            'folders' => ['getFoldersInFolder'],
+        ];
+    }
+
+    /**
+     * Like TYPO3's LocalDriver, listing a folder that does not exist is an error, and the error
+     * names the folder.
+     *
+     * @dataProvider listingMethods
+     */
+    public function testListingMissingFolderThrows(string $method): void
+    {
+        $missingFolder = $this->testFolder . 'missing/';
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage($missingFolder);
+        $this->subject->{$method}($missingFolder);
     }
 
     /**

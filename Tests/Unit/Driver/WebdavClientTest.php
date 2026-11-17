@@ -508,14 +508,6 @@ class WebdavClientTest extends TestCase
         );
     }
 
-    public function testGetDescendantPathsReturnsEmptyArrayForMissingFolder(): void
-    {
-        // Same result as for an unreachable server or a non-OK propstat.
-        $this->httpClient->enqueue(new Response(404));
-
-        self::assertSame([], $this->subject->getDescendantPaths('/missing/', false));
-    }
-
     public function testGetDescendantPathsReturnsEmptyArrayIfServerIsUnreachable(): void
     {
         $this->httpClient->enqueue($this->createClientException());
