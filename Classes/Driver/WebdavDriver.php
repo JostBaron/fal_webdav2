@@ -457,9 +457,7 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
     {
         $folderIdentifier = $this->canonicalizeAndCheckFolderIdentifier($folderIdentifier);
 
-        // Not GeneralUtility::isFirstPartOfStr(), which is removed in TYPO3 12; not str_starts_with(),
-        // which needs PHP 8.
-        return 0 === \strpos((string)$identifier, $folderIdentifier);
+        return \str_starts_with((string)$identifier, $folderIdentifier);
     }
 
     public function getFileInfoByIdentifier($fileIdentifier, array $propertiesToExtract = []): array

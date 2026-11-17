@@ -9,6 +9,7 @@ use GuzzleHttp\Psr7\HttpFactory;
 use Jbaron\FalWebdav\Driver\WebdavClientFactory;
 use Jbaron\FalWebdav\Driver\WebdavDriver;
 use PHPUnit\Framework\TestCase;
+use TYPO3\CMS\Core\Http\Client\GuzzleClientFactory;
 use TYPO3\CMS\Core\Http\RequestFactory;
 use TYPO3\CMS\Core\Http\StreamFactory;
 use TYPO3\CMS\Core\Http\UriFactory;
@@ -590,7 +591,7 @@ class WebdavDriverTest extends TestCase
         // (see EXT:core/Configuration/Services.yaml).
         GeneralUtility::addInstance(
             WebdavClientFactory::class,
-            new WebdavClientFactory(new RequestFactory(), new StreamFactory(), new UriFactory(), $this->httpClient)
+            new WebdavClientFactory(new RequestFactory(new GuzzleClientFactory()), new StreamFactory(), new UriFactory(), $this->httpClient)
         );
 
         $driver = new WebdavDriver([

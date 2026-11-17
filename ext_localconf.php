@@ -1,7 +1,6 @@
 <?php
-if (!defined('TYPO3_MODE')) {
-    die ('Access denied.');
-}
+
+defined('TYPO3') or die();
 
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['fal']['registeredDrivers'][\Jbaron\FalWebdav\Driver\WebdavDriver::DRIVER_KEY] = [
     'class' => \Jbaron\FalWebdav\Driver\WebdavDriver::class,

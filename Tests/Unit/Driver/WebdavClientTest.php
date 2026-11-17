@@ -12,6 +12,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\RequestExceptionInterface;
 use Psr\Http\Message\RequestInterface;
+use TYPO3\CMS\Core\Http\Client\GuzzleClientFactory;
 use TYPO3\CMS\Core\Http\RequestFactory;
 use TYPO3\CMS\Core\Http\StreamFactory;
 use TYPO3\CMS\Core\Http\UriFactory;
@@ -36,7 +37,7 @@ class WebdavClientTest extends TestCase
         $this->httpClient = new RecordingHttpClient();
         // Same PSR-17 implementations that TYPO3's DI container injects in production.
         $this->subject = new WebdavClient(
-            new RequestFactory(),
+            new RequestFactory(new GuzzleClientFactory()),
             new StreamFactory(),
             new UriFactory(),
             $this->httpClient,
