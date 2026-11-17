@@ -29,7 +29,7 @@ The test layout:
 
 There is no linter or build step. To exercise the driver inside TYPO3, install it into one of the Sites (`../../Sites/*/frontend`) via Composer. Then create a File Storage record with the driver "WebDAV driver for FAL".
 
-Supported versions: follow `composer.json`. Each major version targets exactly one TYPO3 major: `main` is 2.x for TYPO3 `^12.4` (PHP `^8.1`), and the `1.x` branch is the TYPO3 10.4/11.5 line (PHP 7.4+). Bugfixes for the 1.x line go to `1.x`, where PHP 8-only syntax must still be avoided. All public TYPO3 12.4 releases on Packagist are flagged by security advisories, because 12.4 is ELTS-only now. As a result, `composer update` refuses to install them by default.
+Supported versions: follow `composer.json`. Each major version targets exactly one TYPO3 major: `main` is 2.x for TYPO3 `^12.4` (PHP `^8.1`), and the `1.x` branch is the TYPO3 10.4/11.5 line (PHP 7.4+). Bugfixes for the 1.x line go to `1.x`, where PHP 8-only syntax must still be avoided. All public TYPO3 12.4 releases on Packagist are flagged by security advisories, because 12.4 is ELTS-only now. As a result, `composer update` refuses to install them by default. The tests use PHPUnit 11, which needs PHP 8.2+, even though the extension itself runs on 8.1. Test metadata goes in attributes (`#[DataProvider]`, `#[CoversClass]`), not docblock annotations, and data providers must be static.
 
 ## Architecture
 

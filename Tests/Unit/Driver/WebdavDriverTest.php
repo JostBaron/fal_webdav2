@@ -7,23 +7,20 @@ namespace Jbaron\FalWebdav\Tests\Unit\Driver;
 use Jbaron\FalWebdav\Driver\WebdavClient;
 use Jbaron\FalWebdav\Driver\WebdavClientFactory;
 use Jbaron\FalWebdav\Driver\WebdavDriver;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use TYPO3\CMS\Core\Resource\Exception\FileOperationErrorException;
 use TYPO3\CMS\Core\Resource\ResourceStorageInterface;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
-/**
- * @covers \Jbaron\FalWebdav\Driver\WebdavDriver
- */
+#[CoversClass(WebdavDriver::class)]
 class WebdavDriverTest extends TestCase
 {
     private const STORAGE_UID = 42;
 
-    /**
-     * @var WebdavClient&MockObject
-     */
-    private $webdavClient;
+    private WebdavClient&MockObject $webdavClient;
 
     private WebdavDriver $subject;
 
@@ -450,7 +447,7 @@ class WebdavDriverTest extends TestCase
     /**
      * @return array<string, array{0: string}>
      */
-    public function sortFieldsFallingBackToName(): array
+    public static function sortFieldsFallingBackToName(): array
     {
         return [
             'no sort field' => [''],
@@ -460,9 +457,7 @@ class WebdavDriverTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider sortFieldsFallingBackToName
-     */
+    #[DataProvider('sortFieldsFallingBackToName')]
     public function testFilesAreSortedNaturallyAndCaseInsensitivelyByName(string $sort): void
     {
         $this->webdavClient->method('getDescendantPaths')->willReturn([
@@ -566,9 +561,7 @@ class WebdavDriverTest extends TestCase
         );
     }
 
-    /**
-     * @dataProvider sortFieldsFallingBackToName
-     */
+    #[DataProvider('sortFieldsFallingBackToName')]
     public function testSortingByNameDoesNotQueryServerProperties(string $sort): void
     {
         $this->webdavClient->method('getDescendantPaths')->willReturn($this->createSortableListing());
@@ -581,7 +574,7 @@ class WebdavDriverTest extends TestCase
     /**
      * @return array<string, array{0: int, 1: int, 2: array<string>}>
      */
-    public function paginationCases(): array
+    public static function paginationCases(): array
     {
         return [
             'all items' => [0, 0, ['/folder/a.txt', '/folder/b.txt', '/folder/c.txt', '/folder/d.txt']],
@@ -594,9 +587,9 @@ class WebdavDriverTest extends TestCase
     }
 
     /**
-     * @dataProvider paginationCases
      * @param array<string> $expected
      */
+    #[DataProvider('paginationCases')]
     public function testFileListingsArePaginated(int $start, int $numberOfItems, array $expected): void
     {
         $this->webdavClient->method('getDescendantPaths')->willReturn($this->createSortableListing());
@@ -651,7 +644,7 @@ class WebdavDriverTest extends TestCase
     /**
      * @return array<string, array{0: string}>
      */
-    public function listingMethods(): array
+    public static function listingMethods(): array
     {
         return [
             'files' => ['getFilesInFolder'],
@@ -661,9 +654,7 @@ class WebdavDriverTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider listingMethods
-     */
+    #[DataProvider('listingMethods')]
     public function testListingThrowsIfFolderCannotBeListed(string $method): void
     {
         $this->webdavClient->method('getDescendantPaths')->willReturn(null);
@@ -811,7 +802,7 @@ class WebdavDriverTest extends TestCase
     /**
      * @return array<string, array{0: string, 1: string, 2: array<string>}>
      */
-    public function failingFileOperations(): array
+    public static function failingFileOperations(): array
     {
         return [
             'copy' => ['copy', 'copyFileWithinStorage', ['/a/file.txt', '/b/', 'copy.txt']],
@@ -824,9 +815,9 @@ class WebdavDriverTest extends TestCase
      * Like TYPO3's LocalDriver, the driver must not report a new identifier for a file that was
      * never created - FAL would otherwise index a file that does not exist.
      *
-     * @dataProvider failingFileOperations
      * @param array<string> $arguments
      */
+    #[DataProvider('failingFileOperations')]
     public function testFileOperationsThrowIfServerOperationFails(
         string $clientMethod,
         string $driverMethod,

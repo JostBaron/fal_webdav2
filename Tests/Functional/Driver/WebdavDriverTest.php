@@ -8,6 +8,8 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\HttpFactory;
 use Jbaron\FalWebdav\Driver\WebdavClientFactory;
 use Jbaron\FalWebdav\Driver\WebdavDriver;
+use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use TYPO3\CMS\Core\Http\Client\GuzzleClientFactory;
 use TYPO3\CMS\Core\Http\RequestFactory;
@@ -23,9 +25,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *     docker compose -f Tests/Functional/Fixtures/webdav-server/docker-compose.yaml up -d --build
  *
  * Every test works inside its own, freshly created folder, which is removed afterwards.
- *
- * @coversNothing
  */
+#[CoversNothing]
 class WebdavDriverTest extends TestCase
 {
     private Client $httpClient;
@@ -357,7 +358,7 @@ class WebdavDriverTest extends TestCase
     /**
      * @return array<string, array{0: string}>
      */
-    public function timeSortFields(): array
+    public static function timeSortFields(): array
     {
         return [
             'modification time' => ['tstamp'],
@@ -367,9 +368,8 @@ class WebdavDriverTest extends TestCase
 
     /**
      * WebDAV reports times with a resolution of one second, hence the sleeps.
-     *
-     * @dataProvider timeSortFields
      */
+    #[DataProvider('timeSortFields')]
     public function testFilesCanBeSortedByTime(string $sort): void
     {
         $this->subject->setFileContents($this->testFolder . 'b.txt', 'first');
@@ -440,7 +440,7 @@ class WebdavDriverTest extends TestCase
     /**
      * @return array<string, array{0: string}>
      */
-    public function listingMethods(): array
+    public static function listingMethods(): array
     {
         return [
             'files' => ['getFilesInFolder'],
@@ -451,9 +451,8 @@ class WebdavDriverTest extends TestCase
     /**
      * Like TYPO3's LocalDriver, listing a folder that does not exist is an error, and the error
      * names the folder.
-     *
-     * @dataProvider listingMethods
      */
+    #[DataProvider('listingMethods')]
     public function testListingMissingFolderThrows(string $method): void
     {
         $missingFolder = $this->testFolder . 'missing/';
@@ -466,7 +465,7 @@ class WebdavDriverTest extends TestCase
     /**
      * @return array<string, array{0: string, 1: array<string>}>
      */
-    public function operationsOnMissingFile(): array
+    public static function operationsOnMissingFile(): array
     {
         return [
             'copy' => ['copyFileWithinStorage', ['missing.txt', '', 'copy.txt']],
@@ -476,9 +475,9 @@ class WebdavDriverTest extends TestCase
     }
 
     /**
-     * @dataProvider operationsOnMissingFile
      * @param array<string> $arguments
      */
+    #[DataProvider('operationsOnMissingFile')]
     public function testOperationsOnMissingFileThrow(string $method, array $arguments): void
     {
         // Prefix the identifiers with the test folder (the data provider runs before setUp()).
@@ -523,7 +522,7 @@ class WebdavDriverTest extends TestCase
     /**
      * @return array<string, array{0: string}>
      */
-    public function specialFileNames(): array
+    public static function specialFileNames(): array
     {
         return [
             'space' => ['my file.txt'],
@@ -532,9 +531,7 @@ class WebdavDriverTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider specialFileNames
-     */
+    #[DataProvider('specialFileNames')]
     public function testFilesWithSpecialCharactersCanBeStoredAndListed(string $fileName): void
     {
         $identifier = $this->testFolder . $fileName;
@@ -546,9 +543,7 @@ class WebdavDriverTest extends TestCase
         self::assertSame([$identifier], $this->subject->getFilesInFolder($this->testFolder));
     }
 
-    /**
-     * @dataProvider specialFileNames
-     */
+    #[DataProvider('specialFileNames')]
     public function testFilesWithSpecialCharactersCanBeRenamed(string $fileName): void
     {
         $this->subject->setFileContents($this->testFolder . 'plain.txt', 'contents');

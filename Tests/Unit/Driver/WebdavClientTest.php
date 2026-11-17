@@ -6,8 +6,11 @@ namespace Jbaron\FalWebdav\Tests\Unit\Driver;
 
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
+use Jbaron\FalWebdav\Driver\MultiStatusResponse;
 use Jbaron\FalWebdav\Driver\WebdavClient;
 use Jbaron\FalWebdav\Tests\Unit\Fixtures\RecordingHttpClient;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\RequestExceptionInterface;
@@ -18,10 +21,8 @@ use TYPO3\CMS\Core\Http\StreamFactory;
 use TYPO3\CMS\Core\Http\UriFactory;
 use TYPO3\CMS\Core\Resource\Exception\FileOperationErrorException;
 
-/**
- * @covers \Jbaron\FalWebdav\Driver\WebdavClient
- * @covers \Jbaron\FalWebdav\Driver\MultiStatusResponse
- */
+#[CoversClass(WebdavClient::class)]
+#[CoversClass(MultiStatusResponse::class)]
 class WebdavClientTest extends TestCase
 {
     private const WEBDAV_URL = 'https://dav.example.com/dav/';
@@ -116,7 +117,7 @@ class WebdavClientTest extends TestCase
     /**
      * @return array<string, array{0: int}>
      */
-    public function nonExistingStatusCodes(): array
+    public static function nonExistingStatusCodes(): array
     {
         return [
             'not found' => [404],
@@ -125,9 +126,7 @@ class WebdavClientTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider nonExistingStatusCodes
-     */
+    #[DataProvider('nonExistingStatusCodes')]
     public function testPathExistsReturnsFalseForNon200Responses(int $statusCode): void
     {
         $this->httpClient->enqueue(new Response($statusCode));
@@ -181,7 +180,7 @@ class WebdavClientTest extends TestCase
     /**
      * @return array<string, array{0: int, 1: bool}>
      */
-    public function uploadStatusCodes(): array
+    public static function uploadStatusCodes(): array
     {
         return [
             'created' => [201, true],
@@ -191,9 +190,7 @@ class WebdavClientTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider uploadStatusCodes
-     */
+    #[DataProvider('uploadStatusCodes')]
     public function testUploadFileReportsSuccessDependingOnStatusCode(int $statusCode, bool $expected): void
     {
         $this->httpClient->enqueue(new Response($statusCode));
@@ -211,7 +208,7 @@ class WebdavClientTest extends TestCase
     /**
      * @return array<string, array{0: string}>
      */
-    public function copyAndMoveMethods(): array
+    public static function copyAndMoveMethods(): array
     {
         return [
             'copy' => ['COPY'],
@@ -219,9 +216,7 @@ class WebdavClientTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider copyAndMoveMethods
-     */
+    #[DataProvider('copyAndMoveMethods')]
     public function testCopyAndMoveSendAbsoluteDestinationHeader(string $method): void
     {
         $this->httpClient->enqueue(new Response(201));
@@ -236,9 +231,7 @@ class WebdavClientTest extends TestCase
         self::assertSame('infinity', $request->getHeaderLine('Depth'));
     }
 
-    /**
-     * @dataProvider copyAndMoveMethods
-     */
+    #[DataProvider('copyAndMoveMethods')]
     public function testCopyAndMoveAcceptOverwriteResponse(string $method): void
     {
         $this->httpClient->enqueue(new Response(204));
@@ -246,9 +239,7 @@ class WebdavClientTest extends TestCase
         self::assertTrue($this->callCopyOrMove($method, '/a', '/b'));
     }
 
-    /**
-     * @dataProvider copyAndMoveMethods
-     */
+    #[DataProvider('copyAndMoveMethods')]
     public function testCopyAndMoveReturnFalseOnFailure(string $method): void
     {
         $this->httpClient->enqueue(new Response(412));
@@ -256,9 +247,7 @@ class WebdavClientTest extends TestCase
         self::assertFalse($this->callCopyOrMove($method, '/a', '/b'));
     }
 
-    /**
-     * @dataProvider copyAndMoveMethods
-     */
+    #[DataProvider('copyAndMoveMethods')]
     public function testCopyAndMoveReturnFalseIfServerIsUnreachable(string $method): void
     {
         $this->httpClient->enqueue($this->createClientException());
@@ -651,7 +640,7 @@ class WebdavClientTest extends TestCase
      *
      * @return array<string, array{0: int}>
      */
-    public function unreadableFolderStatusCodes(): array
+    public static function unreadableFolderStatusCodes(): array
     {
         return [
             'not found' => [404],
@@ -660,9 +649,7 @@ class WebdavClientTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider unreadableFolderStatusCodes
-     */
+    #[DataProvider('unreadableFolderStatusCodes')]
     public function testIsFolderEmptyReturnsTrueIfFolderCannotBeRead(int $statusCode): void
     {
         $this->httpClient->enqueue(new Response($statusCode));
@@ -702,7 +689,7 @@ class WebdavClientTest extends TestCase
     /**
      * @return array<string, array{0: string, 1: string}>
      */
-    public function publicUrlPaths(): array
+    public static function publicUrlPaths(): array
     {
         return [
             'leading slash' => ['/folder/file.txt', 'https://files.example.com/file/folder/file.txt'],
@@ -711,9 +698,7 @@ class WebdavClientTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider publicUrlPaths
-     */
+    #[DataProvider('publicUrlPaths')]
     public function testGetPublicUrlPrefixesPathWithPublicUrl(string $path, string $expectedUrl): void
     {
         self::assertSame($expectedUrl, $this->subject->getPublicUrl($path));

@@ -14,11 +14,11 @@
             <directory>Tests/Functional</directory>
         </testsuite>
     </testsuites>
-    <coverage>
+    <source>
         <include>
             <directory suffix=".php">Classes</directory>
         </include>
-    </coverage>
+    </source>
     <php>
         <!-- Base URL of the WebDAV test server, see Tests/Functional/Fixtures/webdav-server/. -->
         <env name="FAL_WEBDAV_TEST_SERVER" value="http://127.0.0.1:8089" force="false"/>
