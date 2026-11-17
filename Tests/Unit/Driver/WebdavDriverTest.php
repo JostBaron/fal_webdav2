@@ -443,6 +443,154 @@ class WebdavDriverTest extends TestCase
         self::assertSame(['/folder/sub2/'], $this->subject->getFoldersInFolder('/folder/', 0, 0, false, [$filter]));
     }
 
+    // ---------------------------------------------------------------------------------------------
+    // Sorting and pagination of listings (behaviour of TYPO3's LocalDriver)
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public function sortFieldsFallingBackToName(): array
+    {
+        return [
+            'no sort field' => [''],
+            'name' => ['name'],
+            'file' => ['file'],
+            'unsupported field' => ['unsupported'],
+        ];
+    }
+
+    /**
+     * @dataProvider sortFieldsFallingBackToName
+     */
+    public function testFilesAreSortedNaturallyAndCaseInsensitivelyByName(string $sort): void
+    {
+        $this->webdavClient->method('getDescendantPaths')->willReturn([
+            '/folder/' => 'directory',
+            '/folder/file10.txt' => 'file',
+            '/folder/B.txt' => 'file',
+            '/folder/file2.txt' => 'file',
+            '/folder/a.txt' => 'file',
+        ]);
+
+        self::assertSame(
+            ['/folder/a.txt', '/folder/B.txt', '/folder/file2.txt', '/folder/file10.txt'],
+            $this->subject->getFilesInFolder('/folder/', 0, 0, false, [], $sort)
+        );
+    }
+
+    public function testFoldersAreSortedNaturallyAndCaseInsensitivelyByName(): void
+    {
+        $this->webdavClient->method('getDescendantPaths')->willReturn([
+            '/folder/' => 'directory',
+            '/folder/sub10/' => 'directory',
+            '/folder/Beta/' => 'directory',
+            '/folder/sub2/' => 'directory',
+            '/folder/alpha/' => 'directory',
+        ]);
+
+        self::assertSame(
+            ['/folder/alpha/', '/folder/Beta/', '/folder/sub2/', '/folder/sub10/'],
+            $this->subject->getFoldersInFolder('/folder/')
+        );
+    }
+
+    public function testRecursiveListingIsSortedByFileNameNotByPath(): void
+    {
+        $this->webdavClient->method('getDescendantPaths')->willReturn([
+            '/folder/' => 'directory',
+            '/folder/b.txt' => 'file',
+            '/folder/z/' => 'directory',
+            '/folder/z/a.txt' => 'file',
+        ]);
+
+        self::assertSame(
+            ['/folder/z/a.txt', '/folder/b.txt'],
+            $this->subject->getFilesInFolder('/folder/', 0, 0, true, [], 'name')
+        );
+    }
+
+    public function testFilesCanBeSortedByExtension(): void
+    {
+        $this->webdavClient->method('getDescendantPaths')->willReturn([
+            '/folder/' => 'directory',
+            '/folder/a.txt' => 'file',
+            '/folder/b.png' => 'file',
+            '/folder/c.jpg' => 'file',
+        ]);
+
+        self::assertSame(
+            ['/folder/c.jpg', '/folder/b.png', '/folder/a.txt'],
+            $this->subject->getFilesInFolder('/folder/', 0, 0, false, [], 'fileext')
+        );
+        self::assertSame(
+            ['/folder/a.txt', '/folder/b.png', '/folder/c.jpg'],
+            $this->subject->getFilesInFolder('/folder/', 0, 0, false, [], 'fileext', true)
+        );
+    }
+
+    /**
+     * @return array<string, array{0: int, 1: int, 2: array<string>}>
+     */
+    public function paginationCases(): array
+    {
+        return [
+            'all items' => [0, 0, ['/folder/a.txt', '/folder/b.txt', '/folder/c.txt', '/folder/d.txt']],
+            'first two' => [0, 2, ['/folder/a.txt', '/folder/b.txt']],
+            'from the second' => [1, 0, ['/folder/b.txt', '/folder/c.txt', '/folder/d.txt']],
+            'window' => [1, 2, ['/folder/b.txt', '/folder/c.txt']],
+            'more requested than available' => [3, 10, ['/folder/d.txt']],
+            'start beyond the end' => [10, 0, []],
+        ];
+    }
+
+    /**
+     * @dataProvider paginationCases
+     * @param array<string> $expected
+     */
+    public function testFileListingsArePaginated(int $start, int $numberOfItems, array $expected): void
+    {
+        $this->webdavClient->method('getDescendantPaths')->willReturn($this->createSortableListing());
+
+        self::assertSame($expected, $this->subject->getFilesInFolder('/folder/', $start, $numberOfItems));
+    }
+
+    public function testFolderListingsArePaginated(): void
+    {
+        $this->webdavClient->method('getDescendantPaths')->willReturn($this->createListing());
+
+        self::assertSame(['/folder/sub2/'], $this->subject->getFoldersInFolder('/folder/', 1, 1));
+    }
+
+    public function testPaginationIsAppliedAfterSorting(): void
+    {
+        $this->webdavClient->method('getDescendantPaths')->willReturn($this->createSortableListing());
+
+        self::assertSame(
+            ['/folder/d.txt', '/folder/c.txt'],
+            $this->subject->getFilesInFolder('/folder/', 0, 2, false, [], 'name', true)
+        );
+    }
+
+    public function testPaginationIsAppliedAfterFiltering(): void
+    {
+        $this->webdavClient->method('getDescendantPaths')->willReturn($this->createSortableListing());
+        $withoutB = static fn (string $itemName) => 'b.txt' === $itemName ? -1 : true;
+
+        self::assertSame(
+            ['/folder/c.txt'],
+            $this->subject->getFilesInFolder('/folder/', 1, 1, false, [$withoutB])
+        );
+    }
+
+    public function testCountingAppliesFilters(): void
+    {
+        $this->webdavClient->method('getDescendantPaths')->willReturn($this->createSortableListing());
+        $withoutB = static fn (string $itemName) => 'b.txt' === $itemName ? -1 : true;
+
+        self::assertSame(3, $this->subject->countFilesInFolder('/folder/', false, [$withoutB]));
+    }
+
     public function testCountFilesAndFoldersInFolder(): void
     {
         $this->webdavClient->method('getDescendantPaths')->willReturn($this->createListing());
@@ -818,6 +966,21 @@ class WebdavDriverTest extends TestCase
             '/folder/b.txt' => 'file',
             '/folder/sub1/' => 'directory',
             '/folder/a.txt' => 'file',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function createSortableListing(): array
+    {
+        return [
+            '/folder/' => 'directory',
+            '/folder/c.txt' => 'file',
+            '/folder/a.txt' => 'file',
+            '/folder/d.txt' => 'file',
+            '/folder/sub/' => 'directory',
+            '/folder/b.txt' => 'file',
         ];
     }
 

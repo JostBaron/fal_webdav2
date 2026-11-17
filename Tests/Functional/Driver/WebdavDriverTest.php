@@ -317,6 +317,56 @@ class WebdavDriverTest extends TestCase
         self::assertSame(2, $this->subject->countFilesInFolder($this->testFolder));
     }
 
+    public function testFilesCanBeSortedBySize(): void
+    {
+        $this->subject->setFileContents($this->testFolder . 'a.txt', \str_repeat('x', 30));
+        $this->subject->setFileContents($this->testFolder . 'b.txt', \str_repeat('x', 200));
+        $this->subject->setFileContents($this->testFolder . 'c.txt', 'x');
+
+        self::assertSame(
+            [$this->testFolder . 'c.txt', $this->testFolder . 'a.txt', $this->testFolder . 'b.txt'],
+            $this->subject->getFilesInFolder($this->testFolder, 0, 0, false, [], 'size')
+        );
+        self::assertSame(
+            [$this->testFolder . 'b.txt', $this->testFolder . 'a.txt', $this->testFolder . 'c.txt'],
+            $this->subject->getFilesInFolder($this->testFolder, 0, 0, false, [], 'size', true)
+        );
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public function timeSortFields(): array
+    {
+        return [
+            'modification time' => ['tstamp'],
+            'creation time' => ['crdate'],
+        ];
+    }
+
+    /**
+     * WebDAV reports times with a resolution of one second, hence the sleeps.
+     *
+     * @dataProvider timeSortFields
+     */
+    public function testFilesCanBeSortedByTime(string $sort): void
+    {
+        $this->subject->setFileContents($this->testFolder . 'b.txt', 'first');
+        \sleep(1);
+        $this->subject->setFileContents($this->testFolder . 'c.txt', 'second');
+        \sleep(1);
+        $this->subject->setFileContents($this->testFolder . 'a.txt', 'third');
+
+        self::assertSame(
+            [$this->testFolder . 'b.txt', $this->testFolder . 'c.txt', $this->testFolder . 'a.txt'],
+            $this->subject->getFilesInFolder($this->testFolder, 0, 0, false, [], $sort)
+        );
+        self::assertSame(
+            [$this->testFolder . 'a.txt', $this->testFolder . 'c.txt', $this->testFolder . 'b.txt'],
+            $this->subject->getFilesInFolder($this->testFolder, 0, 0, false, [], $sort, true)
+        );
+    }
+
     public function testFileInformationIsReadFromServer(): void
     {
         $before = \time();
