@@ -185,6 +185,10 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
                     'localFilePath' => $localFilePath,
                 ]
             );
+            throw new FileOperationErrorException(
+                \sprintf('Could not open local file "%s" for storing it in FAL.', $localFilePath),
+                1795427381
+            );
         }
         $result = $this->webdavClient->uploadFile($newFileIdentifier, $fileHandle);
         if (!$result) {
