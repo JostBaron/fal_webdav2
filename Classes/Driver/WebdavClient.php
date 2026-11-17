@@ -237,30 +237,64 @@ BODY;
         $xPath = new \DOMXPath($response->getNode()->ownerDocument);
         $xPath->registerNamespace('D', 'DAV:');
 
-        $properties = [];
-        $propertyNodes = $xPath->query('//D:prop/*');
-        for ($i = 0; $i < $propertyNodes->length; $i++) {
-            $propertyNode = $propertyNodes->item($i);
-            switch ($propertyNode->localName) {
-                case 'creationdate':
-                    $properties['ctime'] = (new \DateTimeImmutable($propertyNode->textContent))->getTimestamp();
-                    break;
-                case 'getcontentlength':
-                    $properties['size'] = (int)$propertyNode->textContent;
-                    break;
-                case 'getlastmodified':
-                    $parsedTime = \strtotime($propertyNode->textContent);
-                    if (false !== $parsedTime) {
-                        $properties['mtime'] = $parsedTime;
-                    }
-                    break;
-                case 'getcontenttype':
-                    $properties['mimetype'] = $propertyNode->textContent;
-                    break;
-            }
+        return $this->parseProperties($xPath->query('//D:prop/*'));
+    }
+
+    /**
+     * Gets the properties (see getProperties()) of the given collection and its descendants (only
+     * direct children if not recursive) with a single request.
+     *
+     * @return array<string, array{ctime?: int, size?: int, mtime?: int, mimetype?: string}>|null
+     *         Map of paths (including $path itself) to their properties, or null if the path cannot be
+     *         listed, e.g. because it does not exist.
+     */
+    public function getDescendantProperties(string $path, bool $recursive): ?array
+    {
+        $requestBody = <<<'BODY'
+<?xml version="1.0" encoding="utf-8" ?>
+<D:propfind xmlns:D="DAV:">
+    <D:prop xmlns:D="DAV:">
+        <D:creationdate/>
+        <D:getcontentlength/>
+        <D:getlastmodified/>
+        <D:getcontenttype/>
+    </D:prop>
+</D:propfind>
+BODY;
+        $requestBody = \trim($requestBody);
+
+        $response = $this->executeRequest(
+            $this->requestFactory
+                ->createRequest('PROPFIND', $this->getWebdavPath($path))
+                ->withHeader('Content-Type', 'application/xml; charset="utf-8"')
+                ->withHeader('Depth', $recursive ? 'infinity' : '1')
+                ->withBody($this->streamFactory->createStream($requestBody))
+        );
+
+        if (null === $response || 207 !== $response->getStatusCode()) {
+            return null;
         }
 
-        return $properties;
+        $results = $this->splitMultiStatusResponse($response);
+        if ([] === $results || 200 !== $results[0]->getStatusCode()) {
+            return null;
+        }
+
+        $propertiesByPath = [];
+        foreach ($results as $result) {
+            // Servers report found and missing properties in separate <propstat> elements (status 200
+            // and 404), in no particular order. Only use the found ones.
+            $responseNode = $result->getNode()->parentNode->parentNode;
+            $xPath = new \DOMXPath($responseNode->ownerDocument);
+            $xPath->registerNamespace('D', 'DAV:');
+            $propertyNodes = $xPath->query(
+                './D:propstat[contains(D:status, " 200 ")]/D:prop/*',
+                $responseNode
+            );
+            $propertiesByPath[$result->getPath()] = $this->parseProperties($propertyNodes);
+        }
+
+        return $propertiesByPath;
     }
 
     /**
@@ -318,6 +352,36 @@ BODY;
         }
 
         return $pathsToTypesMap;
+    }
+
+    /**
+     * @return array{ctime?: int, size?: int, mtime?: int, mimetype?: string}
+     */
+    private function parseProperties(\DOMNodeList $propertyNodes): array
+    {
+        $properties = [];
+        for ($i = 0; $i < $propertyNodes->length; $i++) {
+            $propertyNode = $propertyNodes->item($i);
+            switch ($propertyNode->localName) {
+                case 'creationdate':
+                    $properties['ctime'] = (new \DateTimeImmutable($propertyNode->textContent))->getTimestamp();
+                    break;
+                case 'getcontentlength':
+                    $properties['size'] = (int)$propertyNode->textContent;
+                    break;
+                case 'getlastmodified':
+                    $parsedTime = \strtotime($propertyNode->textContent);
+                    if (false !== $parsedTime) {
+                        $properties['mtime'] = $parsedTime;
+                    }
+                    break;
+                case 'getcontenttype':
+                    $properties['mimetype'] = $propertyNode->textContent;
+                    break;
+            }
+        }
+
+        return $properties;
     }
 
     public function getPublicUrl(string $path): string

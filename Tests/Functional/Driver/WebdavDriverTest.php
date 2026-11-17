@@ -138,8 +138,9 @@ class WebdavDriverTest extends TestCase
             [$this->testFolder . 'a/', $this->testFolder . 'b/'],
             $this->subject->getFoldersInFolder($this->testFolder)
         );
+        // Recursive listings are sorted by folder name, not by path (like TYPO3's LocalDriver).
         self::assertSame(
-            [$this->testFolder . 'a/', $this->testFolder . 'a/nested/', $this->testFolder . 'b/'],
+            [$this->testFolder . 'a/', $this->testFolder . 'b/', $this->testFolder . 'a/nested/'],
             $this->subject->getFoldersInFolder($this->testFolder, 0, 0, true)
         );
         self::assertSame(2, $this->subject->countFoldersInFolder($this->testFolder));

@@ -534,6 +534,76 @@ class WebdavClientTest extends TestCase
     }
 
     // ---------------------------------------------------------------------------------------------
+    // getDescendantProperties
+    // ---------------------------------------------------------------------------------------------
+
+    public function testGetDescendantPropertiesReturnsPropertiesOfAllEntries(): void
+    {
+        // Layout as returned by Apache's mod_dav: found and missing properties in separate propstats.
+        $body = '<?xml version="1.0" encoding="utf-8"?>'
+            . '<D:multistatus xmlns:D="DAV:"><D:response xmlns:lp1="DAV:">'
+            . '<D:href>/dav/folder/</D:href>'
+            . '<D:propstat><D:prop><D:getcontenttype>httpd/unix-directory</D:getcontenttype>'
+            . '<lp1:getlastmodified>Wed, 26 Jan 2022 12:30:00 GMT</lp1:getlastmodified></D:prop>'
+            . '<D:status>HTTP/1.1 200 OK</D:status></D:propstat>'
+            . '<D:propstat><D:prop><D:getcontentlength/></D:prop>'
+            . '<D:status>HTTP/1.1 404 Not Found</D:status></D:propstat>'
+            . '</D:response><D:response xmlns:lp1="DAV:">'
+            . '<D:href>/dav/folder/file.txt</D:href>'
+            // Missing properties first, to check that the order does not matter.
+            . '<D:propstat><D:prop><D:getcontenttype/></D:prop>'
+            . '<D:status>HTTP/1.1 404 Not Found</D:status></D:propstat>'
+            . '<D:propstat><D:prop><lp1:getcontentlength>42</lp1:getcontentlength>'
+            . '<lp1:creationdate>2022-01-26T10:00:00Z</lp1:creationdate></D:prop>'
+            . '<D:status>HTTP/1.1 200 OK</D:status></D:propstat>'
+            . '</D:response></D:multistatus>';
+        $this->httpClient->enqueue(new Response(207, [], $body));
+
+        self::assertSame(
+            [
+                '/folder/' => [
+                    'mimetype' => 'httpd/unix-directory',
+                    'mtime' => \strtotime('Wed, 26 Jan 2022 12:30:00 GMT'),
+                ],
+                '/folder/file.txt' => [
+                    'size' => 42,
+                    'ctime' => \strtotime('2022-01-26T10:00:00Z'),
+                ],
+            ],
+            $this->subject->getDescendantProperties('/folder/', false)
+        );
+
+        $request = $this->httpClient->getLastRequest();
+        self::assertSame('PROPFIND', $request->getMethod());
+        self::assertSame('1', $request->getHeaderLine('Depth'));
+    }
+
+    public function testGetDescendantPropertiesUsesInfiniteDepthWhenRecursive(): void
+    {
+        $this->httpClient->enqueue(
+            $this->createMultiStatusResponse([['href' => '/dav/folder/', 'props' => '']])
+        );
+
+        $this->subject->getDescendantProperties('/folder/', true);
+
+        self::assertSame('infinity', $this->httpClient->getLastRequest()->getHeaderLine('Depth'));
+    }
+
+    public function testGetDescendantPropertiesReturnsNullForMissingFolder(): void
+    {
+        $this->httpClient->enqueue(new Response(404));
+
+        self::assertNull($this->subject->getDescendantProperties('/missing/', false));
+    }
+
+    public function testGetDescendantPropertiesReturnsNullIfServerIsUnreachable(): void
+    {
+        $this->httpClient->enqueue($this->createClientException());
+
+        self::assertNull($this->subject->getDescendantProperties('/folder/', false));
+    }
+
+    // ---------------------------------------------------------------------------------------------
     // isFolderEmpty
     // ---------------------------------------------------------------------------------------------
 

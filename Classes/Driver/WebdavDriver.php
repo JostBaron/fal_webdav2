@@ -498,31 +498,16 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
         $sort = '',
         $sortRev = false
     ): array {
-        $folderIdentifier = $this->canonicalizeAndCheckFolderIdentifier($folderIdentifier);
-
-        $filePaths = [];
-        foreach ($this->getDescendantPathsOrFail($folderIdentifier, $recursive) as $path => $pathType) {
-            if ('file' !== $pathType || $path === $folderIdentifier) {
-                continue;
-            }
-            $entryName = \trim(\basename($path), '/');
-            $entryFolderIdentifier = $this->getParentFolderIdentifierOfIdentifier($path);
-            foreach ($filenameFilterCallbacks as $folderNameFilterCallback) {
-                if (-1 === $folderNameFilterCallback($entryName, $path, $entryFolderIdentifier, [], $this)) {
-                    continue 2;
-                }
-            }
-
-            $filePaths[] = $path;
-        }
-
-        // The second parameter of sort() takes flags, not the sort direction.
-        \sort($filePaths);
-        if ($sortRev) {
-            $filePaths = \array_reverse($filePaths);
-        }
-
-        return $filePaths;
+        return $this->listItems(
+            $folderIdentifier,
+            'file',
+            (int)$start,
+            (int)$numberOfItems,
+            (bool)$recursive,
+            $filenameFilterCallbacks,
+            (string)$sort,
+            (bool)$sortRev
+        );
     }
 
     public function getFolderInFolder($folderName, $folderIdentifier): string
@@ -539,31 +524,16 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
         $sort = '',
         $sortRev = false
     ): array {
-        $folderIdentifier = $this->canonicalizeAndCheckFolderIdentifier($folderIdentifier);
-
-        $folderPaths = [];
-        foreach ($this->getDescendantPathsOrFail($folderIdentifier, $recursive) as $path => $pathType) {
-            if ('directory' !== $pathType || $path === $folderIdentifier) {
-                continue;
-            }
-            $entryName = \trim(\basename($path), '/');
-            $entryFolderIdentifier = $this->getParentFolderIdentifierOfIdentifier($path);
-            foreach ($folderNameFilterCallbacks as $folderNameFilterCallback) {
-                if (-1 === $folderNameFilterCallback($entryName, $path, $entryFolderIdentifier, [], $this)) {
-                    continue 2;
-                }
-            }
-
-            $folderPaths[] = $path;
-        }
-
-        // The second parameter of sort() takes flags, not the sort direction.
-        \sort($folderPaths);
-        if ($sortRev) {
-            $folderPaths = \array_reverse($folderPaths);
-        }
-
-        return $folderPaths;
+        return $this->listItems(
+            $folderIdentifier,
+            'directory',
+            (int)$start,
+            (int)$numberOfItems,
+            (bool)$recursive,
+            $folderNameFilterCallbacks,
+            (string)$sort,
+            (bool)$sortRev
+        );
     }
 
     public function countFilesInFolder(
@@ -584,6 +554,103 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
         return \count(
             $this->getFoldersInFolder($folderIdentifier, 0, 0, $recursive, $folderNameFilterCallbacks)
         );
+    }
+
+    /**
+     * Lists files or folders like TYPO3's LocalDriver: filters, then sorts, then paginates.
+     *
+     * @param string $type "file" or "directory"
+     * @param array<callable> $filterCallbacks
+     * @param string $sort One of "name"/"file" (default), "fileext", "size", "tstamp", "crdate"; any other
+     *                     value (including "" and "rw" - all items have the same permissions) sorts by name.
+     *
+     * @return array<string> identifiers
+     */
+    private function listItems(
+        string $folderIdentifier,
+        string $type,
+        int $start,
+        int $numberOfItems,
+        bool $recursive,
+        array $filterCallbacks,
+        string $sort,
+        bool $sortRev
+    ): array {
+        $folderIdentifier = $this->canonicalizeAndCheckFolderIdentifier($folderIdentifier);
+
+        $paths = [];
+        foreach ($this->getDescendantPathsOrFail($folderIdentifier, $recursive) as $path => $pathType) {
+            if ($type !== $pathType || $path === $folderIdentifier) {
+                continue;
+            }
+            $entryName = \trim(\basename($path), '/');
+            $entryFolderIdentifier = $this->getParentFolderIdentifierOfIdentifier($path);
+            foreach ($filterCallbacks as $filterCallback) {
+                if (-1 === $filterCallback($entryName, $path, $entryFolderIdentifier, [], $this)) {
+                    continue 2;
+                }
+            }
+
+            $paths[] = $path;
+        }
+
+        $paths = $this->sortPaths($folderIdentifier, $recursive, $paths, $type, $sort);
+        if ($sortRev) {
+            $paths = \array_reverse($paths);
+        }
+
+        return \array_slice($paths, \max(0, $start), $numberOfItems > 0 ? $numberOfItems : null);
+    }
+
+    /**
+     * Sorts naturally and case-insensitively by the requested property (like TYPO3's LocalDriver),
+     * with the item name and then the identifier as tie-breakers, so the order is deterministic.
+     *
+     * @param array<string> $paths
+     *
+     * @return array<string>
+     */
+    private function sortPaths(string $folderIdentifier, bool $recursive, array $paths, string $type, string $sort): array
+    {
+        $serverProperty = ['size' => 'size', 'tstamp' => 'mtime', 'crdate' => 'ctime'][$sort] ?? null;
+
+        // Fetch the properties of all items with a single request, but only if needed for sorting.
+        $properties = [];
+        if (null !== $serverProperty && [] !== $paths) {
+            $properties = $this->webdavClient->getDescendantProperties($folderIdentifier, $recursive) ?? [];
+        }
+
+        $sortingKeys = [];
+        foreach ($paths as $path) {
+            $name = \trim(\basename($path), '/');
+            if (null !== $serverProperty) {
+                // Like LocalDriver, folders have size 0.
+                $sortingKeys[$path] = 'size' === $serverProperty && 'directory' === $type
+                    ? 0
+                    : (int)($properties[$path][$serverProperty] ?? 0);
+            } elseif ('fileext' === $sort) {
+                $sortingKeys[$path] = PathUtility::pathinfo($name, \PATHINFO_EXTENSION);
+            } else {
+                $sortingKeys[$path] = $name;
+            }
+        }
+
+        \usort(
+            $paths,
+            static function (string $a, string $b) use ($sortingKeys): int {
+                $keyA = $sortingKeys[$a];
+                $keyB = $sortingKeys[$b];
+                $result = \is_int($keyA) && \is_int($keyB)
+                    ? $keyA <=> $keyB
+                    : \strnatcasecmp((string)$keyA, (string)$keyB);
+                if (0 === $result) {
+                    $result = \strnatcasecmp(\trim(\basename($a), '/'), \trim(\basename($b), '/'));
+                }
+                return 0 !== $result ? $result : \strcmp($a, $b);
+            }
+        );
+
+        return $paths;
     }
 
     /**

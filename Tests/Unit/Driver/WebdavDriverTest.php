@@ -529,6 +529,55 @@ class WebdavDriverTest extends TestCase
         );
     }
 
+    public function testFilesCanBeSortedBySizeWithASingleRequest(): void
+    {
+        $this->webdavClient->method('getDescendantPaths')->willReturn($this->createSortableListing());
+        $this->webdavClient->expects(self::once())
+            ->method('getDescendantProperties')
+            ->with('/folder/', false)
+            ->willReturn([
+                '/folder/a.txt' => ['size' => 300],
+                '/folder/b.txt' => ['size' => 20],
+                '/folder/c.txt' => ['size' => 100],
+                // No size reported: sorted like size 0.
+                '/folder/d.txt' => [],
+            ]);
+        $this->webdavClient->expects(self::never())->method('getProperties');
+
+        self::assertSame(
+            ['/folder/d.txt', '/folder/b.txt', '/folder/c.txt', '/folder/a.txt'],
+            $this->subject->getFilesInFolder('/folder/', 0, 0, false, [], 'size')
+        );
+    }
+
+    public function testItemsWithEqualSortingKeysAreSortedByName(): void
+    {
+        $this->webdavClient->method('getDescendantPaths')->willReturn($this->createSortableListing());
+        $this->webdavClient->method('getDescendantProperties')->willReturn([
+            '/folder/a.txt' => ['mtime' => 2000],
+            '/folder/b.txt' => ['mtime' => 1000],
+            '/folder/c.txt' => ['mtime' => 2000],
+            '/folder/d.txt' => ['mtime' => 1000],
+        ]);
+
+        self::assertSame(
+            ['/folder/b.txt', '/folder/d.txt', '/folder/a.txt', '/folder/c.txt'],
+            $this->subject->getFilesInFolder('/folder/', 0, 0, false, [], 'tstamp')
+        );
+    }
+
+    /**
+     * @dataProvider sortFieldsFallingBackToName
+     */
+    public function testSortingByNameDoesNotQueryServerProperties(string $sort): void
+    {
+        $this->webdavClient->method('getDescendantPaths')->willReturn($this->createSortableListing());
+        $this->webdavClient->expects(self::never())->method('getDescendantProperties');
+        $this->webdavClient->expects(self::never())->method('getProperties');
+
+        $this->subject->getFilesInFolder('/folder/', 0, 0, false, [], $sort);
+    }
+
     /**
      * @return array<string, array{0: int, 1: int, 2: array<string>}>
      */
