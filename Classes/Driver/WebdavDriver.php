@@ -177,7 +177,7 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
         $fileName = '' === $newFileName ? \basename($localFilePath) : $newFileName;
         $newFileIdentifier = $this->getFileIdentifierFromParentFolderAndFileName($targetFolderIdentifier, $fileName);
 
-        $fileHandle = \fopen($localFilePath, 'r+');
+        $fileHandle = \fopen($localFilePath, 'rb');
         if (false === $fileHandle) {
             $this->logger->error(
                 'Could not open local file for storing in FAL.',
