@@ -108,11 +108,17 @@ BODY;
                 ->withBody($this->streamFactory->createStream($emptyRequestBody))
         );
 
-        if (null === $response) {
+        // Like TYPO3's LocalDriver, a folder that cannot be read (e.g. because it does not exist) is empty.
+        if (null === $response || 207 !== $response->getStatusCode()) {
             return true;
         }
 
         $results = $this->splitMultiStatusResponse($response);
+        if ([] === $results || 200 !== $results[0]->getStatusCode()) {
+            return true;
+        }
+
+        // The first entry is the folder itself, every further entry is a child.
         return 1 === \count($results);
     }
 
