@@ -563,6 +563,67 @@ class WebdavClientTest extends TestCase
         self::assertFalse($this->subject->isFolderEmpty('/folder/'));
     }
 
+    public function testIsFolderEmptyReturnsFalseIfFolderHasOnlySubFolders(): void
+    {
+        $this->httpClient->enqueue(
+            $this->createMultiStatusResponse([
+                ['href' => '/dav/folder/', 'props' => '<D:resourcetype/>'],
+                ['href' => '/dav/folder/sub/', 'props' => '<D:resourcetype/>'],
+            ])
+        );
+
+        self::assertFalse($this->subject->isFolderEmpty('/folder/'));
+    }
+
+    /**
+     * Like TYPO3's LocalDriver (whose opendir() fails), a folder that cannot be read counts as empty.
+     *
+     * @return array<string, array{0: int}>
+     */
+    public function unreadableFolderStatusCodes(): array
+    {
+        return [
+            'not found' => [404],
+            'forbidden' => [403],
+            'server error' => [500],
+        ];
+    }
+
+    /**
+     * @dataProvider unreadableFolderStatusCodes
+     */
+    public function testIsFolderEmptyReturnsTrueIfFolderCannotBeRead(int $statusCode): void
+    {
+        $this->httpClient->enqueue(new Response($statusCode));
+
+        self::assertTrue($this->subject->isFolderEmpty('/folder/'));
+    }
+
+    public function testIsFolderEmptyReturnsTrueIfServerIsUnreachable(): void
+    {
+        $this->httpClient->enqueue($this->createClientException());
+
+        self::assertTrue($this->subject->isFolderEmpty('/folder/'));
+    }
+
+    public function testIsFolderEmptyReturnsTrueIfMultiStatusResponseHasNoEntries(): void
+    {
+        $this->httpClient->enqueue($this->createMultiStatusResponse([]));
+
+        self::assertTrue($this->subject->isFolderEmpty('/folder/'));
+    }
+
+    public function testIsFolderEmptyReturnsTrueIfFolderItselfIsNotOk(): void
+    {
+        $this->httpClient->enqueue(
+            $this->createMultiStatusResponse([
+                ['href' => '/dav/folder/', 'props' => '', 'status' => 'HTTP/1.1 403 Forbidden'],
+            ])
+        );
+
+        self::assertTrue($this->subject->isFolderEmpty('/folder/'));
+    }
+
     // ---------------------------------------------------------------------------------------------
     // getPublicUrl
     // ---------------------------------------------------------------------------------------------

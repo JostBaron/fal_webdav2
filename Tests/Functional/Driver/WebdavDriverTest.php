@@ -109,6 +109,25 @@ class WebdavDriverTest extends TestCase
         self::assertFalse($this->subject->isFolderEmpty($folder));
     }
 
+    public function testFolderWithOnlySubFoldersIsNotEmpty(): void
+    {
+        $folder = $this->subject->createFolder('folder/sub', $this->testFolder);
+
+        self::assertFalse($this->subject->isFolderEmpty($this->testFolder . 'folder/'));
+        self::assertTrue($this->subject->isFolderEmpty($folder));
+    }
+
+    public function testMissingFolderIsEmpty(): void
+    {
+        // Like TYPO3's LocalDriver.
+        self::assertTrue($this->subject->isFolderEmpty($this->testFolder . 'missing/'));
+    }
+
+    public function testDeletingMissingFolderFailsWithoutException(): void
+    {
+        self::assertFalse($this->subject->deleteFolder($this->testFolder . 'missing/'));
+    }
+
     public function testGetFoldersInFolder(): void
     {
         $this->subject->createFolder('b', $this->testFolder);
