@@ -507,7 +507,12 @@ BODY;
             } else {
                 $resourceUri = $this->uriFactory->createUri($responseUri);
             }
-            $resourcePath = '/' . \ltrim(\substr((string)$resourceUri, \strlen((string)$webdavUrl)), '/');
+            // hrefs are URL-encoded (RFC 4918, section 8.3.1), FAL identifiers are not. Decode only after
+            // removing the base URL, which is compared in its encoded form. rawurldecode() keeps "+".
+            $resourcePath = '/' . \ltrim(
+                \rawurldecode(\substr((string)$resourceUri, \strlen((string)$webdavUrl))),
+                '/'
+            );
 
             $result[] = new MultiStatusResponse(
                 $resourcePath,
