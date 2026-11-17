@@ -1,0 +1,11 @@
+# WebDAV server for the functional tests:
+#   docker compose -f Tests/Functional/Fixtures/webdav-server/docker-compose.yaml up -d --build
+# The tests expect it at http://127.0.0.1:8089 (override with FAL_WEBDAV_TEST_SERVER).
+# Data lives in a tmpfs, so every restart of the container starts from an empty storage.
+services:
+  webdav:
+    build: .
+    ports:
+      - "127.0.0.1:8089:80"
+    tmpfs:
+      - /var/www/processed_files:uid=33,gid=33,mode=0755

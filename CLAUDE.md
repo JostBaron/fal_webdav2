@@ -8,14 +8,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-There are no tests, linter, or build step. `vendor/`, `public/` (a TYPO3 core install pulled in by `composer install`) and `composer.lock` are gitignored. They exist only so the IDE can resolve TYPO3 classes.
+`vendor/`, `public/` (a TYPO3 core install pulled in by `composer install`) and `composer.lock` are gitignored.
 
 ```bash
-composer install                                   # fetch TYPO3 core + PSR deps for IDE/autocompletion
-find Classes -name '*.php' -exec php -l {} \;      # the only available sanity check: syntax lint
+composer install
+composer test:unit                 # unit tests, no external dependencies
+composer test:functional           # needs the WebDAV test server (below); tests are skipped without it
+composer test                      # both
+vendor/bin/phpunit --filter testRenameFolder   # single test / pattern
+
+# WebDAV test server (Apache mod_dav, mirrors the sites' docker/processed-files image) on 127.0.0.1:8089:
+docker compose -f Tests/Functional/Fixtures/webdav-server/docker-compose.yaml up -d --build
 ```
 
-To exercise the driver for real, install it into one of the Sites (`../../Sites/*/frontend`) through Composer. Then create a File Storage record in the TYPO3 backend with driver "WebDAV driver for FAL".
+The test layout:
+- `Tests/Unit/` covers `WebdavClient` against `RecordingHttpClient`, a fake PSR-18 client that serves queued responses, and covers `WebdavDriver` with a mocked client. The mocked client is injected through `GeneralUtility::addInstance(WebdavClientFactory::class, ...)`.
+- `Tests/Functional/` runs the real driver against the container, using a fresh `/test-<random>/` folder per test.
+- Both suites use TYPO3's own PSR-17 factories (`TYPO3\CMS\Core\Http\*Factory`), the same ones the DI container injects in production. Don't swap in Guzzle's `HttpFactory`: its streams close their resource on destruct, which breaks the driver's `fclose()` calls.
+- `processed-files.conf` in the fixture is a copy of the sites' file. Keep the two in sync.
+
+There is no linter or build step. To exercise the driver inside TYPO3, install it into one of the Sites (`../../Sites/*/frontend`) via Composer. Then create a File Storage record with the driver "WebDAV driver for FAL".
 
 Supported versions: follow `composer.json` (PHP `^7.4 || ^8.0 || ^8.1`, TYPO3 `^10.4 || ^11.5`). The constraints in `ext_emconf.php` (TYPO3 10.4 only) are stale. Because PHP 7.4 is still supported, avoid PHP 8-only syntax such as constructor promotion, `match`, union types, or `str_starts_with`.
 
