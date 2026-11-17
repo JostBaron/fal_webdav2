@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace Jbaron\FalWebdav\Driver;
 
-use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\DependencyInjection\Container;
 use TYPO3\CMS\Core\Log\LogManager;
 use TYPO3\CMS\Core\Resource\Driver\AbstractHierarchicalFilesystemDriver;
 use TYPO3\CMS\Core\Resource\Exception\FileOperationErrorException;
@@ -26,7 +24,7 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
     private const DEFAULT_FOLDER_ID = '/user_upload/';
 
     private LoggerInterface $logger;
-    private WebdavClientFactory $webdavClientFactory;
+    private readonly WebdavClientFactory $webdavClientFactory;
     private WebdavClient $webdavClient;
 
     /**
@@ -34,11 +32,6 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
      */
     private array $tempfileNames = [];
 
-    /**
-     * DatabaseDriver constructor.
-     *
-     * @param array $configuration
-     */
     public function __construct(array $configuration = [])
     {
         parent::__construct($configuration);
@@ -705,10 +698,6 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
      * Creates a new temporary file and returns the path to it. Adds it to the list of files to be
      * deleted when the driver is destructed.
      *
-     * @param string $fileIdentifier
-     *
-     * @return string
-     *
      * @throws FileOperationErrorException
      */
     private function getTemporaryFileName(string $fileIdentifier): string
@@ -747,10 +736,7 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
     /**
      * Extracts information about a file from the filesystem.
      *
-     * @param string $identifier
      * @param string[] $propertiesToExtract array of properties which should be returned, if empty all will be extracted
-     *
-     * @return array
      *
      * @throws ResourceDoesNotExistException
      * @throws FileOperationErrorException
@@ -789,39 +775,25 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
     /**
      * Extracts a specific FileInformation from the FileSystems.
      *
-     * @param string $identifier
-     * @param array $onlineProperties
-     * @param string $property
-     *
-     * @return bool|int|string
-     *
      * @throws FileOperationErrorException
      */
-    private function getSpecificFileInformation(string $identifier, array $onlineProperties, string $property)
+    private function getSpecificFileInformation(string $identifier, array $onlineProperties, string $property): int|string
     {
         if (\array_key_exists($property, $onlineProperties)) {
             return $onlineProperties[$property];
         }
 
-        switch ($property) {
-            case 'name':
-                return \basename($identifier);
-            case 'extension':
-                return PathUtility::pathinfo($identifier, \PATHINFO_EXTENSION);
-            case 'identifier':
-                return $identifier;
-            case 'storage':
-                return $this->storageUid;
-            case 'identifier_hash':
-                return $this->hashIdentifier($identifier);
-            case 'folder_hash':
-                $folderIdentifier = $this->getParentFolderIdentifierOfIdentifier($identifier);
-                return $this->hashIdentifier($folderIdentifier);
-            default:
-                throw new \InvalidArgumentException(
-                    \sprintf('The information "%s" is not available for files from the webdav storage.', $property),
-                    1643142896
-                );
-        }
+        return match ($property) {
+            'name' => \basename($identifier),
+            'extension' => PathUtility::pathinfo($identifier, \PATHINFO_EXTENSION),
+            'identifier' => $identifier,
+            'storage' => $this->storageUid,
+            'identifier_hash' => $this->hashIdentifier($identifier),
+            'folder_hash' => $this->hashIdentifier($this->getParentFolderIdentifierOfIdentifier($identifier)),
+            default => throw new \InvalidArgumentException(
+                \sprintf('The information "%s" is not available for files from the webdav storage.', $property),
+                1643142896
+            ),
+        };
     }
 }

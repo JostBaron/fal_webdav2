@@ -6,15 +6,11 @@ namespace Jbaron\FalWebdav\Driver;
 
 class MultiStatusResponse
 {
-    private string $path;
-    private int $statusCode;
-    private \DOMNode $node;
-
-    public function __construct(string $path, int $statusCode, \DOMNode $node)
-    {
-        $this->path = $path;
-        $this->statusCode = $statusCode;
-        $this->node = $node;
+    public function __construct(
+        private readonly string $path,
+        private readonly int $statusCode,
+        private readonly \DOMNode $node,
+    ) {
     }
 
     public function getPath(): string

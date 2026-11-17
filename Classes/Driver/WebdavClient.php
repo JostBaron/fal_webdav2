@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Jbaron\FalWebdav\Driver;
 
-use Psr\Cache\CacheItemPoolInterface;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Client\RequestExceptionInterface;
@@ -13,7 +12,6 @@ use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\UriFactoryInterface;
-use Psr\Http\Message\UriInterface;
 use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Core\Log\LogManager;
 use TYPO3\CMS\Core\Resource\Exception\FileOperationErrorException;
@@ -21,30 +19,16 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 class WebdavClient
 {
-    private LoggerInterface $logger;
-    private RequestFactoryInterface $requestFactory;
-    private StreamFactoryInterface $streamFactory;
-    private UriFactoryInterface $uriFactory;
-    private ClientInterface $httpClient;
-
-    private string $webdavUrl;
-    private string $publicUrlPrefix;
+    private readonly LoggerInterface $logger;
 
     public function __construct(
-        RequestFactoryInterface $requestFactory,
-        StreamFactoryInterface $streamFactory,
-        UriFactoryInterface $uriFactory,
-        ClientInterface $httpClient,
-        string $webdavUrl,
-        string $publicUrlPrefix
+        private readonly RequestFactoryInterface $requestFactory,
+        private readonly StreamFactoryInterface $streamFactory,
+        private readonly UriFactoryInterface $uriFactory,
+        private readonly ClientInterface $httpClient,
+        private readonly string $webdavUrl,
+        private readonly string $publicUrlPrefix,
     ) {
-        $this->requestFactory = $requestFactory;
-        $this->streamFactory = $streamFactory;
-        $this->uriFactory = $uriFactory;
-        $this->httpClient = $httpClient;
-        $this->webdavUrl = $webdavUrl;
-        $this->publicUrlPrefix = $publicUrlPrefix;
-
         $this->logger = GeneralUtility::makeInstance(LogManager::class)->getLogger(__CLASS__);
     }
 
@@ -405,11 +389,6 @@ BODY;
         return null === $response || $response->getStatusCode() >= 500;
     }
 
-    private function isNotFound(?ResponseInterface $response): bool
-    {
-        return null !== $response && 404 === $response->getStatusCode();
-    }
-
     private function executeRequest(RequestInterface $request): ?ResponseInterface
     {
         try {
@@ -488,7 +467,6 @@ BODY;
     }
 
     /**
-     * @param ResponseInterface $response
      * @return array<MultiStatusResponse>
      */
     private function splitMultiStatusResponse(ResponseInterface $response): array
@@ -578,7 +556,7 @@ BODY;
             $statusCode = (int)$matches[1];
 
             $webdavUrl = $this->uriFactory->createUri($this->webdavUrl);
-            if (false === \strpos($responseUri, '://')) {
+            if (!\str_contains($responseUri, '://')) {
                 // This is only the path.
                 $resourceUri = $webdavUrl->withPath($responseUri);
             } else {

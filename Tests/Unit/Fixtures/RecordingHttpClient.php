@@ -24,10 +24,7 @@ class RecordingHttpClient implements ClientInterface
      */
     private array $requests = [];
 
-    /**
-     * @param ResponseInterface|\Throwable $responseOrException
-     */
-    public function enqueue($responseOrException): self
+    public function enqueue(ResponseInterface|\Throwable $responseOrException): self
     {
         $this->queue[] = $responseOrException;
         return $this;
