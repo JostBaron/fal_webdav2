@@ -26,6 +26,7 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
     private const DEFAULT_FOLDER_ID = '/user_upload/';
 
     private LoggerInterface $logger;
+    private WebdavClientFactory $webdavClientFactory;
     private WebdavClient $webdavClient;
 
     /**
