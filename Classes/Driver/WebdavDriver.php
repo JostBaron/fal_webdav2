@@ -514,10 +514,11 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
             $filePaths[] = $path;
         }
 
-        \sort(
-            $filePaths,
-            $sortRev ? \SORT_DESC : \SORT_ASC
-        );
+        // The second parameter of sort() takes flags, not the sort direction.
+        \sort($filePaths);
+        if ($sortRev) {
+            $filePaths = \array_reverse($filePaths);
+        }
 
         return $filePaths;
     }
@@ -554,10 +555,11 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
             $folderPaths[] = $path;
         }
 
-        \sort(
-            $folderPaths,
-            $sortRev ? \SORT_DESC : \SORT_ASC
-        );
+        // The second parameter of sort() takes flags, not the sort direction.
+        \sort($folderPaths);
+        if ($sortRev) {
+            $folderPaths = \array_reverse($folderPaths);
+        }
 
         return $folderPaths;
     }

@@ -381,6 +381,16 @@ class WebdavDriverTest extends TestCase
         );
     }
 
+    public function testGetFoldersInFolderSortsInReverse(): void
+    {
+        $this->webdavClient->method('getDescendantPaths')->willReturn($this->createListing());
+
+        self::assertSame(
+            ['/folder/sub2/', '/folder/sub1/'],
+            $this->subject->getFoldersInFolder('/folder/', 0, 0, false, [], '', true)
+        );
+    }
+
     public function testGetFilesInFolderPassesRecursiveFlag(): void
     {
         $this->webdavClient->expects(self::once())
