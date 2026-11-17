@@ -198,7 +198,7 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
             );
         }
 
-        $closed = \fclose($fileHandle);
+        $closed = $this->closeIfStillOpen($fileHandle);
         if (!$closed) {
             $this->logger->notice(
                 'Failed to close local file after upload',
@@ -246,7 +246,7 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
 
         $result = $this->webdavClient->uploadFile($newFileIdentifier, $fileHandle);
 
-        $closed = \fclose($fileHandle);
+        $closed = $this->closeIfStillOpen($fileHandle);
         if (!$closed) {
             $this->logger->notice('Failed to close local file after upload');
         }
@@ -387,7 +387,7 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
             return -1;
         }
 
-        $closed = \fclose($fileHandle);
+        $closed = $this->closeIfStillOpen($fileHandle);
         if (!$closed) {
             $this->logger->notice('Failed to close local file after upload');
         }
@@ -582,6 +582,21 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
         return \count(
             $this->getFoldersInFolder($folderIdentifier, 0, 0, $recursive, $folderNameFilterCallbacks)
         );
+    }
+
+    /**
+     * Closes a file handle that was passed to the WebDAV client for uploading. The PSR-7 stream
+     * wrapping it owns the handle from then on, and some implementations (e.g. Guzzle's) close
+     * it themselves when the stream is destroyed.
+     *
+     * @param resource $fileHandle
+     */
+    private function closeIfStillOpen($fileHandle): bool
+    {
+        if (!\is_resource($fileHandle)) {
+            return true;
+        }
+        return \fclose($fileHandle);
     }
 
     /**
