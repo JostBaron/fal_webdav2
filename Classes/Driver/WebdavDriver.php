@@ -258,7 +258,12 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
         $fileIdentifier = $this->canonicalizeAndCheckFileIdentifier($fileIdentifier);
         $newFileIdentifier = $this->getFileIdentifierFromParentFolderAndFileName($targetFolderIdentifier, $fileName);
 
-        $this->webdavClient->copy($fileIdentifier, $newFileIdentifier);
+        if (!$this->webdavClient->copy($fileIdentifier, $newFileIdentifier)) {
+            throw new FileOperationErrorException(
+                \sprintf('Could not copy file "%s" to "%s".', $fileIdentifier, $newFileIdentifier),
+                1795427382
+            );
+        }
 
         return $newFileIdentifier;
     }
@@ -272,7 +277,12 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
         );
         $newFileIdentifier = $this->getFileIdentifierFromParentFolderAndFileName($filesDirectory, $newName);
 
-        $this->webdavClient->move($fileIdentifier, $newFileIdentifier);
+        if (!$this->webdavClient->move($fileIdentifier, $newFileIdentifier)) {
+            throw new FileOperationErrorException(
+                \sprintf('Could not rename file "%s" to "%s".', $fileIdentifier, $newFileIdentifier),
+                1795427383
+            );
+        }
 
         return $newFileIdentifier;
     }
@@ -300,7 +310,12 @@ class WebdavDriver extends AbstractHierarchicalFilesystemDriver
         $fileIdentifier = $this->canonicalizeAndCheckFileIdentifier($fileIdentifier);
         $newFileIdentifier = $this->getFileIdentifierFromParentFolderAndFileName($targetFolderIdentifier, $newFileName);
 
-        $this->webdavClient->move($fileIdentifier, $newFileIdentifier);
+        if (!$this->webdavClient->move($fileIdentifier, $newFileIdentifier)) {
+            throw new FileOperationErrorException(
+                \sprintf('Could not move file "%s" to "%s".', $fileIdentifier, $newFileIdentifier),
+                1795427384
+            );
+        }
 
         return $newFileIdentifier;
     }
