@@ -150,7 +150,7 @@ BODY;
         }
         if (201 !== $response->getStatusCode() && 204 !== $response->getStatusCode()) {
             $this->logger->error(
-                'Copying failed',
+                'Moving failed',
                 [
                     'source' => $oldPath,
                     'target' => $newPath,
